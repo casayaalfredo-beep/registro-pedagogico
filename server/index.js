@@ -2738,6 +2738,82 @@ app.post('/api/sync/remote-receive', async (req, res) => {
   }
 });
 
+// 6. Bajar cambios desde la nube hacia la laptop (1-Clic instantáneo)
+app.post('/api/sync/pull-from-cloud', async (req, res) => {
+  try {
+    const { cloudUrl } = req.body;
+    if (!cloudUrl) {
+      return res.status(400).json({ error: 'URL de la nube requerida' });
+    }
+    const cleanUrl = cloudUrl.replace(/\/+$/, '');
+    const downloadUrl = `${cleanUrl}/api/sync/download-db`;
+
+    console.log('[Sync] Descargando base de datos desde la nube:', downloadUrl);
+    const remoteRes = await fetch(downloadUrl);
+    if (!remoteRes.ok) {
+      throw new Error(`El servidor en la nube respondió con error ${remoteRes.status}`);
+    }
+
+    const buffer = Buffer.from(await remoteRes.arrayBuffer());
+    const tempFile = path.join(__dirname, 'prisma', 'backups_auto', `temp_pull_${Date.now()}.db`);
+    fs.writeFileSync(tempFile, buffer);
+
+    syncService.restoreFromUploadedDb(tempFile);
+    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+
+    const stats = await syncService.getStats(prisma);
+    res.json({
+      success: true,
+      message: '¡Cambios descargados exitosamente! Tu laptop está sincronizada con tu celular.',
+      stats
+    });
+  } catch (error) {
+    console.error('[Sync] Error al bajar de la nube:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. Subir cambios desde la laptop hacia la nube (1-Clic instantáneo)
+app.post('/api/sync/push-to-cloud', async (req, res) => {
+  try {
+    const { cloudUrl } = req.body;
+    if (!cloudUrl) {
+      return res.status(400).json({ error: 'URL de la nube requerida' });
+    }
+    const cleanUrl = cloudUrl.replace(/\/+$/, '');
+    const uploadUrl = `${cleanUrl}/api/sync/restore-db`;
+
+    console.log('[Sync] Subiendo base de datos a la nube:', uploadUrl);
+    if (!fs.existsSync(syncService.DB_PATH)) {
+      return res.status(404).json({ error: 'Base de datos local no encontrada' });
+    }
+
+    const fileBuffer = fs.readFileSync(syncService.DB_PATH);
+    const blob = new Blob([fileBuffer], { type: 'application/x-sqlite3' });
+    const formData = new FormData();
+    formData.append('file', blob, 'dev.db');
+
+    const remoteRes = await fetch(uploadUrl, {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await remoteRes.json();
+    if (!remoteRes.ok) {
+      throw new Error(result.error || `Error del servidor en la nube (${remoteRes.status})`);
+    }
+
+    res.json({
+      success: true,
+      message: '¡Datos subidos exitosamente! Tu celular ya tiene los últimos cambios de tu laptop.',
+      cloudStats: result.stats
+    });
+  } catch (error) {
+    console.error('[Sync] Error al subir a la nube:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   // Respaldo preventivo al iniciar el servidor
   syncService.createAutoBackup('startup');

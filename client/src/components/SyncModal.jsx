@@ -120,34 +120,17 @@ const SyncModal = ({ isOpen, onClose }) => {
         if (!cloudUrl) {
             setMessage({
                 type: 'error',
-                text: 'Ingresa primero la URL de tu servidor en la nube (ejemplo: https://mi-registro.onrender.com)'
+                text: 'Ingresa primero la URL de tu servidor en la nube (ejemplo: https://registro-pedagogico.onrender.com)'
             });
             return;
         }
 
         try {
             setLoading(true);
-            setMessage({ type: 'info', text: 'Exportando datos y enviando a tu nube...' });
+            setMessage({ type: 'info', text: 'Subiendo base de datos de tu laptop hacia tu celular/nube...' });
 
-            // 1. Obtener JSON completo local
-            const localDataRes = await api.get('/sync/export-json');
-            const payload = localDataRes.data;
-
-            // 2. Enviar a la nube
-            const cleanUrl = cloudUrl.replace(/\/+$/, '');
-            const targetUrl = `${cleanUrl}/api/sync/remote-receive`;
-
-            const pushRes = await fetch(targetUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${cloudToken}`
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const result = await pushRes.json();
-            if (pushRes.ok && result.success) {
+            const res = await api.post('/sync/push-to-cloud', { cloudUrl });
+            if (res.data.success) {
                 const nowStr = new Date().toLocaleString();
                 setLastSyncTime(nowStr);
                 localStorage.setItem('rp_last_sync', nowStr);
@@ -155,14 +138,50 @@ const SyncModal = ({ isOpen, onClose }) => {
                     type: 'success',
                     text: `¡Sincronización completada! Tus datos ya están disponibles en tu celular (${nowStr}).`
                 });
-            } else {
-                throw new Error(result.error || 'No se pudo conectar con el servidor en la nube.');
             }
         } catch (err) {
             console.error('Error al subir a la nube:', err);
             setMessage({
                 type: 'error',
-                text: `Error de conexión con la nube: ${err.message}. Asegúrate de tener internet y la URL correcta.`
+                text: err.response?.data?.error || `Error al subir datos a la nube: ${err.message}`
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePullFromCloud = async () => {
+        if (!cloudUrl) {
+            setMessage({
+                type: 'error',
+                text: 'Ingresa primero la URL de tu servidor en la nube (ejemplo: https://registro-pedagogico.onrender.com)'
+            });
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setMessage({ type: 'info', text: 'Descargando datos modificados desde tu celular/nube...' });
+
+            const res = await api.post('/sync/pull-from-cloud', { cloudUrl });
+            if (res.data.success) {
+                const nowStr = new Date().toLocaleString();
+                setLastSyncTime(nowStr);
+                localStorage.setItem('rp_last_sync', nowStr);
+                setMessage({
+                    type: 'success',
+                    text: `¡Datos descargados con éxito! Los cambios de tu celular ya están en tu laptop. La página se actualizará en 2 segundos...`
+                });
+                if (res.data.stats) setStats(res.data.stats);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }
+        } catch (err) {
+            console.error('Error al bajar de la nube:', err);
+            setMessage({
+                type: 'error',
+                text: err.response?.data?.error || `Error al descargar datos de la nube: ${err.message}`
             });
         } finally {
             setLoading(false);
@@ -389,22 +408,44 @@ const SyncModal = ({ isOpen, onClose }) => {
                                 </div>
                             </div>
 
-                            {/* Botón de Sincronización */}
-                            <div className="space-y-3">
-                                <button
-                                    onClick={handlePushToCloud}
-                                    disabled={loading || !cloudUrl}
-                                    className="w-full p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-2xl font-bold text-sm shadow-lg shadow-purple-200 transition flex items-center justify-center gap-3"
-                                >
-                                    <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
-                                    <span>Subir cambios a la Nube (Laptop ➔ Celular)</span>
-                                </button>
+                            {/* Botones de Sincronización Bidireccional */}
+                            <div className="space-y-4">
+                                
+                                {/* Botón 1: Bajar cambios del Celular */}
+                                <div className="space-y-1.5">
+                                    <button
+                                        onClick={handlePullFromCloud}
+                                        disabled={loading || !cloudUrl}
+                                        className="w-full p-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 active:scale-95 disabled:opacity-50 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-200 transition flex items-center justify-center gap-3 cursor-pointer"
+                                    >
+                                        <Download size={20} className={loading ? "animate-bounce" : ""} />
+                                        <span>Bajar cambios desde el Celular (Celular ➔ Laptop)</span>
+                                    </button>
+                                    <p className="text-[11px] text-slate-500 text-center font-medium">
+                                        💡 Haz clic aquí para traer a tu laptop las calificaciones y datos que registraste en tu celular.
+                                    </p>
+                                </div>
 
-                                <div className="text-center text-xs text-slate-500 font-medium">
+                                {/* Botón 2: Subir cambios a la Nube */}
+                                <div className="space-y-1.5 pt-1">
+                                    <button
+                                        onClick={handlePushToCloud}
+                                        disabled={loading || !cloudUrl}
+                                        className="w-full p-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 text-white rounded-2xl font-bold text-sm shadow-md shadow-purple-200 transition flex items-center justify-center gap-3 cursor-pointer"
+                                    >
+                                        <Upload size={18} className={loading ? "animate-pulse" : ""} />
+                                        <span>Subir cambios a la Nube (Laptop ➔ Celular)</span>
+                                    </button>
+                                    <p className="text-[11px] text-slate-500 text-center font-medium">
+                                        Envía a la nube todo lo que hayas calificado en tu laptop para tenerlo en tu celular.
+                                    </p>
+                                </div>
+
+                                <div className="text-center text-xs text-slate-500 font-medium pt-2 border-t border-slate-200">
                                     {lastSyncTime ? (
                                         <span>Última sincronización exitosa: <b>{lastSyncTime}</b></span>
                                     ) : (
-                                        <span>Aún no se ha realizado ninguna sincronización con la nube.</span>
+                                        <span>Listo para sincronizar cuando lo requieras.</span>
                                     )}
                                 </div>
                             </div>
