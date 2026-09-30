@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Config from './pages/Config';
 import Students from './pages/Students';
@@ -93,14 +94,50 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
-const AppLayout = ({ children, onLogout }) => (
-    <div className="flex bg-slate-100 min-h-screen">
-        <Sidebar onLogout={onLogout} className="no-print" />
-        <main className="flex-1 ml-64 overflow-x-hidden p-4">
-            {children}
-        </main>
-    </div>
-);
+const AppLayout = ({ children, onLogout }) => {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    return (
+        <div className="flex bg-slate-100 min-h-screen">
+            {/* Barra superior visible únicamente en celulares y tablets */}
+            <header className="md:hidden fixed top-0 left-0 right-0 h-14 bg-slate-900 text-white flex items-center justify-between px-3 z-40 border-b border-slate-800 no-print shadow-md">
+                <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="p-2 text-slate-300 hover:text-white bg-slate-800/80 active:bg-slate-700 rounded-lg transition"
+                    aria-label="Abrir menú"
+                    title="Menú"
+                >
+                    <Menu size={22} />
+                </button>
+                <div className="font-bold text-xs sm:text-sm tracking-wider uppercase bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                    REGISTRO PEDAGÓGICO
+                </div>
+                <div className="w-8"></div>
+            </header>
+
+            {/* Cortina oscura de fondo al abrir el menú en celular */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-xs transition-opacity"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
+            {/* Menú lateral */}
+            <Sidebar
+                onLogout={onLogout}
+                isOpen={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+                className="no-print"
+            />
+
+            {/* Contenido principal: 100% de ancho en celular (ml-0), margen izquierdo solo en pantalla grande (md:ml-64) */}
+            <main className="flex-1 ml-0 md:ml-64 w-full min-w-0 overflow-x-auto p-2 sm:p-4 pt-16 md:pt-4">
+                {children}
+            </main>
+        </div>
+    );
+};
 
 function App() {
     const [authenticated, setAuthenticated] = useState(isAuthenticated());

@@ -751,3 +751,72 @@
         font-size: 7pt !important;
     }
 }
+
+/* ========================================================
+   RESPONSIVE DESIGN PARA CELULARES Y TABLETS
+   ======================================================== */
+@media screen and (max-width: 768px) {
+    .schedule-wrapper {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .schedule-container {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        border-radius: 8px;
+    }
+
+    .schedule-app-controls {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        padding: 0.6rem !important;
+    }
+
+    .schedule-week-navigator {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        width: 100% !important;
+    }
+
+    .schedule-week-navigator button,
+    .schedule-week-navigator input {
+        font-size: 0.72rem !important;
+        padding: 0.3rem 0.5rem !important;
+    }
+
+    .schedule-header {
+        flex-direction: column !important;
+        gap: 8px !important;
+        padding: 0.5rem 0.6rem !important;
+    }
+
+    .schedule-details-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 4px !important;
+        width: 100% !important;
+    }
+
+    .schedule-table-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .schedule-table {
+        min-width: 650px !important;
+        width: 100% !important;
+        table-layout: auto !important;
+    }
+
+    .schedule-table th,
+    .schedule-table td {
+        padding: 0.2rem !important;
+        font-size: 0.7rem !important;
+    }
+}

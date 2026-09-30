@@ -15,11 +15,12 @@ import {
     Lock,
     Unlock,
     FileText,
-    Cloud
+    Cloud,
+    X
 } from 'lucide-react';
 import SyncModal from './SyncModal';
 
-const Sidebar = ({ onLogout, className = '' }) => {
+const Sidebar = ({ onLogout, isOpen = false, onClose, className = '' }) => {
     const location = useLocation();
     const isValoracionPage = location.pathname === '/valoracion';
     const [isCompact, setIsCompact] = React.useState(false);
@@ -70,26 +71,38 @@ const Sidebar = ({ onLogout, className = '' }) => {
     ];
 
     return (
-        <div className={`fixed left-0 top-0 w-64 bg-slate-900 h-screen text-white flex flex-col no-print z-50 select-none ${className}`}>
+        <div className={`fixed left-0 top-0 w-64 bg-slate-900 h-screen text-white flex flex-col no-print z-50 select-none shadow-2xl transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} ${className}`}>
             <div className="px-4 py-3.5 border-b border-slate-700 flex items-center justify-between gap-2 flex-shrink-0">
                 <h1 className="text-base font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent leading-tight">
                     REGISTRO PEDAGÓGICO
                 </h1>
-                {isValoracionPage && (
-                    <button
-                        onClick={toggleCompactMode}
-                        className="text-slate-400 hover:text-white transition-colors p-1.5 bg-slate-800 hover:bg-slate-700 rounded-md shadow-inner flex-shrink-0"
-                        title={isCompact ? "Mostrar encabezado completo" : "Ocultar encabezado de tabla"}
-                    >
-                        {isCompact ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                    </button>
-                )}
+                <div className="flex items-center gap-1">
+                    {isValoracionPage && (
+                        <button
+                            onClick={toggleCompactMode}
+                            className="text-slate-400 hover:text-white transition-colors p-1.5 bg-slate-800 hover:bg-slate-700 rounded-md shadow-inner flex-shrink-0"
+                            title={isCompact ? "Mostrar encabezado completo" : "Ocultar encabezado de tabla"}
+                        >
+                            {isCompact ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                        </button>
+                    )}
+                    {onClose && (
+                        <button
+                            onClick={onClose}
+                            className="md:hidden text-slate-400 hover:text-white transition-colors p-1.5 bg-slate-800 hover:bg-slate-700 rounded-md flex-shrink-0"
+                            title="Cerrar menú"
+                        >
+                            <X size={18} />
+                        </button>
+                    )}
+                </div>
             </div>
             <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto min-h-0 [scrollbar-width:thin] [scrollbar-color:#475569_transparent]">
                 {menuItems.map((item) => (
                     <NavLink
                         key={item.path}
                         to={item.path}
+                        onClick={() => { if (onClose) onClose(); }}
                         className={({ isActive }) =>
                             `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm ${isActive
                                 ? 'bg-purple-600 text-white shadow-md shadow-purple-900/30 font-semibold'
