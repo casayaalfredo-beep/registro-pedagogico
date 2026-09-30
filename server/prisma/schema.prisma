@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Config {
+  id                Int                @id @default(autoincrement())
+  distrito          String?
+  unidadEducativa   String?
+  nivel             String?
+  maestro           String?
+  area              String?
+  gestion           String?
+  curso             String?
+  orientacion       String?            @default("Horizontal")
+  estudiantes       Estudiante[]
+  fechasAsistencia  FechaAsistencia[]
+  gradeHeaders      GradeHeader[]
+  repositorioArchivos RepositorioArchivo[]
+  fichasSeguimiento   FichaSeguimiento[]
+  planPrograma        PlanPrograma?
+}
+
+model Estudiante {
+  id              String       @id @default(uuid())
+  configId        Int
+  config          Config       @relation(fields: [configId], references: [id], onDelete: Cascade)
+  rude            String
+  ci              String
+  apellidos       String
+  nombres         String
+  fechaNacimiento DateTime?
+  edad            Int?
+  direccion       String?
+  genero          String?
+  padreMadre      String?
+  telefono        String?
+  asistencias     Asistencia[]
+  notas           Nota[]
+  fichasSeguimiento FichaSeguimiento[]
+}
+
+model Nota {
+  id            String     @id @default(uuid())
+  estudianteId  String
+  trimestre     Int        // 1, 2, 3
+  
+  // SER (10)
+  ser_1         Float      @default(0)
+  ser_2         Float      @default(0)
+  ser_3         Float      @default(0)
+  ser_4         Float      @default(0)
+  ser_5         Float      @default(0)
+  ser_6         Float      @default(0)
+  
+  // SABER (45)
+  saber_1       Float      @default(0)
+  saber_2       Float      @default(0)
+  saber_3       Float      @default(0)
+  saber_4       Float      @default(0)
+  saber_5       Float      @default(0)
+  saber_6       Float      @default(0)
+  saber_7       Float      @default(0)
+  saber_8       Float      @default(0)
+  
+  // HACER (40)
+  hacer_1       Float      @default(0)
+  hacer_2       Float      @default(0)
+  hacer_3       Float      @default(0)
+  hacer_4       Float      @default(0)
+  hacer_5       Float      @default(0)
+  hacer_6       Float      @default(0)
+  hacer_7       Float      @default(0)
+  
+  // AUTOEVALUACION (5)
+  auto_ser      Float      @default(0)
+  auto_decidir  Float      @default(0)
+  
+  notas_extras  Float      @default(0)
+  notaTrimestre Float      @default(0)
+  rezagados     String?    @default("{}") // JSON string para guardar campos rezagados (ej: '{"ser_1": true}')
+  estudiante    Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+}
+
+model Asistencia {
+  id            String     @id @default(uuid())
+  estudianteId  String
+  fecha         DateTime
+  estado        String     // A, F, R, L
+  trimestre     Int
+  tipo          String     @default("NORMAL") // "NORMAL" o "LUNES"
+  estudiante    Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+}
+
+model FechaAsistencia {
+  id        Int    @id @default(autoincrement())
+  configId  Int
+  trimestre Int
+  month     Int    // 0-indexed (0=Enero, 11=Diciembre)
+  year      Int
+  dia       Int    // columna del dia (1-31)
+  etiqueta  String // texto mostrado, ej: "31/03/26"
+  tipo      String @default("NORMAL") // "NORMAL" o "LUNES"
+  config    Config @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([configId, trimestre, month, year, dia, tipo])
+}
+
+model GradeHeader {
+  id        Int    @id @default(autoincrement())
+  configId  Int
+  trimestre Int
+  campo     String // ej: "ser_1", "sab_3", "hac_7"
+  etiqueta  String // texto escrito por el profesor, ej: "Asistencia"
+  fecha     String? @default("")
+  sellosMax Int?    @default(0)
+  rawSellos String? @default("{}") // JSON map {studentId: rawStampValue} para restaurar datos originales
+  config    Config @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([configId, trimestre, campo])
+}
+
+model RepositorioArchivo {
+  id           String   @id @default(uuid())
+  configId     Int
+  trimestre    Int
+  originalName String
+  fileName     String
+  mimeType     String
+  size         Int
+  path         String
+  createdAt    DateTime @default(now())
+  config       Config   @relation(fields: [configId], references: [id], onDelete: Cascade)
+}
+
+model CentralizadorGeneral {
+  id           Int    @id @default(autoincrement())
+  configId     Int
+  trimestre    Int
+  estudiante   String
+  materia      String
+  nota         Float     @default(0)
+  promedio     Float     @default(0)
+
+  @@unique([configId, trimestre, estudiante, materia])
+}
+
+model FichaSeguimiento {
+  id                 String     @id @default(uuid())
+  estudianteId       String
+  configId           Int
+  trimestre          Int
+  fecha              DateTime   @default(now())
+  hora               String     @default("")
+  anotacionesClave   String     @default("")
+  redaccionDetallada String     @default("")
+  categoria          String     @default("Aprovechamiento/Conducta")
+  inasistenciasAcum  Int        @default(0)
+  atrasosAcum        Int        @default(0)
+  licenciasAcum      Int        @default(0)
+  origenLunesRef     String?    @default("")
+
+  estudiante         Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  config             Config     @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+}
+
+model AgendaNota {
+  id      String   @id
+  subject String
+  weekStr String
+  text    String
+  updated DateTime @default(now())
+}
+
+model AvanceCurricular {
+  id        String   @id @default(uuid())
+  gestion   String?  @default("2026")
+  orden     Int      @default(0)
+  area      String   @default("")
+  curso     String   @default("")
+  t1_tp     String   @default("")
+  t1_td     String   @default("")
+  t2_tp     String   @default("")
+  t2_td     String   @default("")
+  t3_tp     String   @default("")
+  t3_td     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlanPrograma {
+  id        String   @id @default(uuid())
+  configId  Int
+  contenido String   @default("")
+  fuente    String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  config    Config   @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([configId])
+}
+

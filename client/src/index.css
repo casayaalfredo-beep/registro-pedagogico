@@ -1,0 +1,164 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #7030A0;
+}
+
+body {
+  @apply bg-gray-50 text-slate-900;
+  font-family: 'Inter', sans-serif;
+}
+
+.excel-border td,
+.excel-border th {
+  border: 1px solid #94a3b8;
+}
+
+@media print {
+  html, body {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  
+  .sidebar, aside, .fixed.left-0, .no-print, .print\:hidden, [class*="sidebar"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Ocultar scrollbars en impresión */
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+  
+  * {
+    scrollbar-width: none !important;
+  }
+  
+  /* Tabla de valoración en impresión */
+  .print-grades-container {
+    overflow: visible !important;
+    max-height: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  
+  .print-grades-container > div {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  
+  .tabla-valoracion {
+    font-size: 8px !important;
+    width: 100% !important;
+  }
+
+  .tabla-valoracion th,
+  .tabla-valoracion td {
+    padding: 1px !important;
+    font-size: 7px !important;
+  }
+
+  .tabla-valoracion input {
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    height: 15px !important;
+  }
+
+  /* ── Tabla de Asistencia: Tamaños legibles en impresión ── */
+
+  /* Nombres de estudiantes en asistencia */
+  .tabla-asistencia tbody td:nth-child(2) {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+  }
+
+  /* Número de fila en asistencia */
+  .tabla-asistencia tbody td:first-child {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+  }
+
+  /* Letras de asistencia (A, F, R, L) dentro de los inputs */
+  .tabla-asistencia tbody td input {
+    font-size: 12px !important;
+    font-weight: 900 !important;
+  }
+
+  /* Columnas de resumen (totales A, F, R, L) */
+  .tabla-asistencia tbody td:nth-last-child(-n+4) {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+  }
+
+  /* ── Tabla de Centralizador: Estilos en impresión ── */
+  .tabla-centralizador thead th {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #000 !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  .tabla-centralizador thead th:nth-child(3),
+  .tabla-centralizador thead th:nth-child(4),
+  .tabla-centralizador thead th:nth-child(5),
+  .tabla-centralizador tbody td:nth-child(3),
+  .tabla-centralizador tbody td:nth-child(4),
+  .tabla-centralizador tbody td:nth-child(5) {
+    font-size: 14px !important;
+  }
+
+  .tabla-centralizador tbody td:nth-child(3),
+  .tabla-centralizador tbody td:nth-child(4),
+  .tabla-centralizador tbody td:nth-child(5) {
+    font-weight: normal !important; /* Mismo peso de letra regular que trim 1 original */
+  }
+
+  /* Eliminar sombras y bordes decorativos en impresión */
+  .print-content > div {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+}
+
+body {
+  @apply bg-gray-50 text-slate-900;
+  font-family: 'Inter', sans-serif;
+}
+
+.excel-border td,
+.excel-border th {
+  border: 1px solid #94a3b8;
+}
+
+/* Indicador de casilla seleccionada / enfocada estilo Excel sin doble línea ni cortes */
+.cell-selected-indicator,
+.tabla-asistencia td:focus-within,
+.tabla-asistencia td.is-selected {
+  position: relative !important;
+  z-index: 20 !important;
+  outline: 2px solid #9333ea !important;
+  outline-offset: -2px !important;
+}
+
+.tabla-asistencia td input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  background-color: white !important;
+}

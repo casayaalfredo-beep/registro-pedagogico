@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluación - Movimiento Rectilíneo Uniforme (MRU)</title>
+
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+    <style>
+        :root {
+            --page-width: 21.59cm;
+            --page-height: 27.94cm;
+            --margin-print: 2cm;
+            --color-text: #1e293b;
+            --color-gray: #64748b;
+            --color-line: #b0c0d0;
+            --color-light-line: #dce3eb;
+            --font-main: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #e6ebf2;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 30px 10px;
+            font-family: var(--font-main);
+            color: var(--color-text);
+        }
+
+        .page {
+            width: var(--page-width);
+            min-height: var(--page-height);
+            background: #ffffff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            padding: var(--margin-print);
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        @page {
+            size: letter;
+            margin: 2cm;
+        }
+
+        @media print {
+            body {
+                background: #ffffff;
+                padding: 0;
+                margin: 0;
+                display: block;
+                min-height: auto;
+            }
+            .page {
+                width: 100%;
+                min-height: auto;
+                box-shadow: none;
+                padding: 0;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        /* ─────── ENCABEZADO ─────── */
+        .header {
+            border-bottom: 2.5px solid #1a3c5e;
+            padding-bottom: 14px;
+            margin-bottom: 4px;
+        }
+
+        .header h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #1a3c5e;
+            letter-spacing: -0.01em;
+            margin: 0 0 12px 0;
+            line-height: 1.2;
+        }
+
+        /* Datos del estudiante (sin cajas) */
+        .student-data {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px 30px;
+            margin-top: 8px;
+            font-size: 0.85rem;
+        }
+
+        .student-data .field {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .student-data .field .label {
+            font-weight: 700;
+            color: #1a3c5e;
+            font-size: 0.82rem;
+            letter-spacing: 0.02em;
+        }
+
+        .student-data .field .line {
+            border-bottom: 1.5px solid #95a9bd;
+            min-width: 130px;
+            display: inline-block;
+            height: 1.1em;
+        }
+
+        .student-data .field .line.short {
+            min-width: 90px;
+        }
+
+        .student-data .field .line.long {
+            min-width: 180px;
+        }
+
+        /* ─────── INSTRUCCIONES (solo texto, sin caja) ─────── */
+        .instructions {
+            font-size: 0.8rem;
+            color: #4a5568;
+            margin: 10px 0 6px 0;
+            line-height: 1.5;
+            padding: 0;
+            background: none;
+            border: none;
+        }
+
+        .instructions strong {
+            color: #1a3c5e;
+        }
+
+        /* ─────── EJERCICIOS ─────── */
+        .exercises-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            margin-top: 6px;
+        }
+
+        .exercise-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            /* sin bordes, sin fondo */
+            border: none;
+            background: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .exercise-header {
+            font-weight: 800;
+            font-size: 0.92rem;
+            color: #1a3c5e;
+            margin-bottom: 4px;
+            /* solo número de ejercicio, sin círculo */
+        }
+
+        .exercise-statement {
+            font-size: 0.84rem;
+            color: #1e293b;
+            line-height: 1.5;
+            margin-bottom: 4px;
+        }
+
+        /* Datos del ejercicio (texto simple, sin cajas) */
+        .exercise-data {
+            font-size: 0.82rem;
+            color: #1e293b;
+            margin-bottom: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            font-weight: 500;
+        }
+
+        .exercise-data span {
+            white-space: nowrap;
+        }
+
+        .exercise-data .highlight {
+            font-weight: 600;
+            color: #0f3b5c;
+        }
+
+        .exercise-data .unknown {
+            font-weight: 700;
+            color: #b45309;
+            border-bottom: 1.5px dashed #b45309;
+            padding-bottom: 1px;
+        }
+
+        /* Fórmula */
+        .formula-display {
+            font-size: 0.88rem;
+            color: #1a3c5e;
+            margin: 2px 0 6px 0;
+            font-weight: 500;
+        }
+
+        .formula-display .katex {
+            font-size: 1.1em;
+        }
+
+        /* Espacio de resolución (con líneas guía) */
+        .resolution-space {
+            flex: 1;
+            min-height: 5cm;
+            border: none;
+            background: #ffffff;
+            background-image: repeating-linear-gradient(to bottom,
+                    transparent,
+                    transparent 0.75cm,
+                    #d9e0e8 0.75cm,
+                    #d9e0e8 0.755cm);
+            background-position: 0 0.2cm;
+            position: relative;
+            margin-top: 4px;
+            padding: 6px 8px;
+        }
+
+        .resolution-space .placeholder-text {
+            color: #b7c4d4;
+            font-size: 0.72rem;
+            font-style: italic;
+            position: absolute;
+            top: 4px;
+            left: 10px;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .resolution-space .answer-line-container {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #1a3c5e;
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+
+        .resolution-space .answer-line {
+            border-bottom: 2px solid #1a3c5e;
+            min-width: 100px;
+            display: inline-block;
+            height: 1em;
+        }
+
+        /* ─────── SEPARADOR ENTRE EJERCICIOS ─────── */
+        .exercise-separator {
+            border: none;
+            border-top: 1px dashed #c8d2de;
+            margin: 6px 0 4px 0;
+        }
+
+        /* ─────── PIE DE PÁGINA ─────── */
+        .footer-note {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-top: 10px;
+            letter-spacing: 0.02em;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 8px;
+        }
+
+        @media screen and (max-width: 850px) {
+            .page {
+                width: 100%;
+                max-width: 800px;
+                padding: 1.2cm;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            }
+            .student-data {
+                flex-direction: column;
+                gap: 6px;
+            }
+            .exercise-data {
+                flex-direction: column;
+                gap: 3px;
+            }
+            .resolution-space {
+                min-height: 4cm;
+            }
+        }
+
+        @media screen and (max-width: 500px) {
+            .page {
+                padding: 0.8cm;
+            }
+            .header h1 {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+
+        <!-- ─────── ENCABEZADO ─────── -->
+        <header class="header">
+            <h1>Evaluación: Movimiento Rectilíneo Uniforme</h1>
+            <!-- Datos del estudiante -->
+            <div class="student-data">
+                <span class="field">
+                    <span class="label">Nombre:</span>
+                    <span class="line long"></span>
+                </span>
+                <span class="field">
+                    <span class="label">Fecha:</span>
+                    <span class="line short"></span>
+                </span>
+                <span class="field">
+                    <span class="label">Curso:</span>
+                    <span class="line short"></span>
+                </span>
+            </div>
+        </header>
+
+        <!-- ─────── INSTRUCCIONES ─────── -->
+        <p class="instructions">
+            <strong>Indicaciones:</strong> Lee atentamente cada ejercicio. Utiliza las fórmulas del
+            <strong>MRU</strong> y expresa todos los resultados en unidades del
+            <strong>Sistema Internacional (SI)</strong>. La velocidad debe expresarse usando la barra diagonal
+            (<strong>/</strong>), por ejemplo: <strong>m/s</strong>. Desarrolla cada problema en el espacio asignado.
+        </p>
+
+        <!-- ===================== EJERCICIOS ===================== -->
+        <div class="exercises-container">
+
+            <!-- ───── EJERCICIO 1 ───── -->
+            <div class="exercise-wrapper">
+                <div class="exercise-header">1.</div>
+                <p class="exercise-statement">
+                    Un automóvil se desplaza en línea recta con <strong>movimiento rectilíneo uniforme</strong>.
+                    Si recorre una distancia de <strong>150 m</strong> en un tiempo de <strong>30 s</strong>,
+                    ¿cuál es su velocidad?
+                </p>
+                <div class="exercise-data">
+                    <span>Distancia: <span class="highlight">$d = 150 \ \text{m}$</span></span>
+                    <span>Tiempo: <span class="highlight">$t = 30 \ \text{s}$</span></span>
+                    <span>Velocidad: <span class="unknown">$v = \ ?$</span></span>
+                </div>
+                <div class="formula-display">
+                    Fórmula: &ensp; $v = d \ /\ t$
+                </div>
+                <div class="resolution-space">
+                    <span class="placeholder-text">Desarrollo...</span>
+                    <div class="answer-line-container">
+                        $v =$ <span class="answer-line"></span>
+                    </div>
+                </div>
+            </div>
+            <hr class="exercise-separator">
+
+            <!-- ───── EJERCICIO 2 ───── -->
+            <div class="exercise-wrapper">
+                <div class="exercise-header">2.</div>
+                <p class="exercise-statement">
+                    Un ciclista mantiene una velocidad constante de <strong>8 m/s</strong> durante
+                    <strong>45 s</strong> en una trayectoria rectilínea. Calcula la
+                    <strong>distancia total</strong> recorrida.
+                </p>
+                <div class="exercise-data">
+                    <span>Velocidad: <span class="highlight">$v = 8 \ \text{m/s}$</span></span>
+                    <span>Tiempo: <span class="highlight">$t = 45 \ \text{s}$</span></span>
+                    <span>Distancia: <span class="unknown">$d = \ ?$</span></span>
+                </div>
+                <div class="formula-display">
+                    Fórmula: &ensp; $d = v \cdot t$
+                </div>
+                <div class="resolution-space">
+                    <span class="placeholder-text">Desarrollo...</span>
+                    <div class="answer-line-container">
+                        $d =$ <span class="answer-line"></span>
+                    </div>
+                </div>
+            </div>
+            <hr class="exercise-separator">
+
+            <!-- ───── EJERCICIO 3 ───── -->
+            <div class="exercise-wrapper">
+                <div class="exercise-header">3.</div>
+                <p class="exercise-statement">
+                    Un tren viaja con <strong>movimiento rectilíneo uniforme</strong> a una velocidad de
+                    <strong>25 m/s</strong>. Si debe recorrer una distancia de <strong>500 m</strong>,
+                    ¿cuánto <strong>tiempo</strong> tardará en hacerlo?
+                </p>
+                <div class="exercise-data">
+                    <span>Velocidad: <span class="highlight">$v = 25 \ \text{m/s}$</span></span>
+                    <span>Distancia: <span class="highlight">$d = 500 \ \text{m}$</span></span>
+                    <span>Tiempo: <span class="unknown">$t = \ ?$</span></span>
+                </div>
+                <div class="formula-display">
+                    Fórmula: &ensp; $t = d \ /\ v$
+                </div>
+                <div class="resolution-space">
+                    <span class="placeholder-text">Desarrollo...</span>
+                    <div class="answer-line-container">
+                        $t =$ <span class="answer-line"></span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <!-- ==================== FIN EJERCICIOS ==================== -->
+
+        <p class="footer-note">
+            ✅ Unidades en SI &mdash; velocidad con barra (/) &mdash; ¡Éxito!
+        </p>
+    </div>
+
+    <!-- KaTeX scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script>
+        (function() {
+            function renderKaTeX() {
+                try {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            { left: '$$', right: '$$', display: true },
+                            { left: '$', right: '$', display: false },
+                        ],
+                        throwOnError: false,
+                        trust: true,
+                        strict: false,
+                    });
+                } catch (e) {
+                    console.warn('KaTeX render error:', e);
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', renderKaTeX);
+            } else {
+                renderKaTeX();
+            }
+            window.addEventListener('beforeprint', renderKaTeX);
+        })();
+    </script>
+</body>
+</html>

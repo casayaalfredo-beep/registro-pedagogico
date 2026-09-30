@@ -1,0 +1,16 @@
+# Dependencias
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Herramientas locales y backups locales
+.tools/
+BACKUPS_SEGURIDAD/
+server/prisma/backups_auto/
+server/prisma/backups_auto/temp/
+server/prisma/dev_backup*.db
+
+# Logs y temporales
+*.log
+.DS_Store
+Thumbs.db

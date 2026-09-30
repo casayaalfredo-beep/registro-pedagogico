@@ -1,0 +1,187 @@
+.tabla-valoracion {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+}
+.tabla-valoracion th, .tabla-valoracion td {
+    border: 1px solid #cbd5e1;
+    padding: 0;
+    text-align: center;
+    vertical-align: middle;
+}
+.tabla-valoracion thead {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+}
+@media print {
+    body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    .scrollbar-thin {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+        display: none !important;
+    }
+    .tabla-valoracion thead {
+        position: static !important;
+    }
+    .tabla-valoracion th, .tabla-valoracion td {
+        border: 1px solid #cbd5e1 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    .tabla-valoracion th.border-b-0, .tabla-valoracion td.border-b-0 { border-bottom-width: 0 !important; }
+    .tabla-valoracion th.border-t-0, .tabla-valoracion td.border-t-0 { border-top-width: 0 !important; }
+    .tabla-valoracion th.border-l-0, .tabla-valoracion td.border-l-0 { border-left-width: 0 !important; }
+    .tabla-valoracion th.border-r-0, .tabla-valoracion td.border-r-0 { border-right-width: 0 !important; }
+    .tabla-valoracion th.border-l-2, .tabla-valoracion td.border-l-2 { border-left-width: 2px !important; }
+    .tabla-valoracion th.border-r-2, .tabla-valoracion td.border-r-2 { border-right-width: 2px !important; }
+    .tabla-valoracion th.border-b-2, .tabla-valoracion td.border-b-2 { border-bottom-width: 2px !important; }
+    .tabla-valoracion th.border-t-2, .tabla-valoracion td.border-t-2 { border-top-width: 2px !important; }
+
+    /* ── Vista previa de impresión: Tamaños de fuente legibles ── */
+
+    /* Nombres de estudiantes más grandes y negritas */
+    .tabla-valoracion tbody td:nth-child(2) {
+        font-size: 13px !important;
+        font-weight: 700 !important;
+    }
+
+    /* Calificaciones (inputs numéricos): más grandes, negritas y alto contraste */
+    .tabla-valoracion input[inputmode="numeric"] {
+        font-size: 14px !important;
+        font-weight: 800 !important;
+        color: #000000 !important;
+    }
+
+    /* Promedios y campos calculados (SER, SABER, HACER, Autoevaluación, Rango, Nota Trimestre) */
+    .tabla-valoracion tbody td.bg-promedio-orange,
+    .tabla-valoracion tbody td.bg-autoeval-peach,
+    .tabla-valoracion tbody td.bg-promedio-blue,
+    .tabla-valoracion tbody td.bg-rango-peach,
+    .tabla-valoracion tbody td.bg-final-gray {
+        font-size: 16px !important;
+        font-weight: 900 !important;
+    }
+
+    /* Número de fila */
+    .tabla-valoracion tbody td:first-child {
+        font-size: 12px !important;
+        font-weight: 700 !important;
+    }
+
+    /* Situación trimestral (APROBADO/REPROBADO) */
+    .tabla-valoracion tbody td:last-child {
+        font-size: 10px !important;
+        font-weight: 800 !important;
+    }
+}
+.tabla-valoracion input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    text-align: center;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10px;
+    font-weight: normal;
+    color: #1e293b;
+    background: transparent;
+    outline: none;
+    padding: 0;
+    margin: 0;
+    scroll-margin-top: 210px; /* Evita que el sticky header oculte la celda al navegar hacia arriba */
+}
+.tabla-valoracion input[inputmode="numeric"] {
+    font-size: 15px;
+}
+.tabla-valoracion td:focus-within {
+    position: relative !important;
+    z-index: 20 !important;
+    outline: 2px solid #9333ea !important;
+    outline-offset: -2px !important;
+}
+.tabla-valoracion input:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: white !important;
+}
+.tabla-valoracion tbody tr:focus-within {
+    background-color: #f1f5f9;
+    transition: background-color 0.2s;
+}
+.tabla-valoracion input[type=number]::-webkit-inner-spin-button, 
+.tabla-valoracion input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+}
+.tabla-valoracion input[type=number] {
+    -moz-appearance: textfield;
+}
+.vertical-header-container {
+    height: 105px;
+    position: relative;
+    width: 22px;
+    overflow: hidden;
+}
+.vertical-header-input {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    text-align: left;
+    padding-top: 5px;
+    width: 100%;
+    height: 100%;
+    max-height: 105px;
+    overflow: hidden;
+    border: none;
+    background: transparent;
+    font-size: 10px;
+    outline: none;
+    font-family: inherit;
+}
+.bg-promedio-orange { background-color: #fce4d6; }
+.bg-autoeval-peach { background-color: #f8cbad; }
+.bg-promedio-blue { background-color: #d9e1f2; }
+.bg-rango-peach { background-color: #fce4d6; }
+.bg-final-gray { background-color: #ededed; }
+.text-red-header { color: #c00000; font-weight: bold; }
+.text-purple-header { color: #7030a0; font-weight: bold; font-size: 12px; }
+
+.thick-left { border-left: 2px solid #94a3b8 !important; }
+.thick-right { border-right: 2px solid #94a3b8 !important; }
+
+/* Ocultar las primeras dos filas del encabezado en modo compacto */
+body.compact-table-header .tabla-valoracion thead tr:nth-child(1),
+body.compact-table-header .tabla-valoracion thead tr:nth-child(2) {
+    display: none !important;
+}
+
+/* Ocultar los controles superiores y expandir la tabla en modo compacto */
+body.compact-table-header .grades-controls-section {
+    display: none !important;
+}
+
+body.compact-table-header .print-grades-container > div {
+    max-height: calc(100vh - 40px) !important;
+}
+
+/* ── Modo Bloqueado: Proteger calificaciones contra edición accidental ── */
+body.valoracion-locked .tabla-valoracion input[inputmode="numeric"] {
+    pointer-events: none !important;
+    user-select: none !important;
+    cursor: not-allowed !important;
+    opacity: 0.65;
+}
+body.valoracion-locked .tabla-valoracion input.vertical-header-input {
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+}
+body.valoracion-locked .print-grades-container {
+    border: 2px solid #ef4444 !important;
+    border-radius: 0.5rem;
+}

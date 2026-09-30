@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda y Horario Escolar 2026 - Unidad Educativa "San Luis"</title>
+    <style>
+        /* Estilos generales y de impresión */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+            background-color: #f8fafc;
+            line-height: 1.4;
+            padding: 15px;
+        }
+        
+        /* Contenedor principal tamaño carta horizontal */
+        .container {
+            width: 27.94cm; /* Ancho carta horizontal (11 pulgadas) */
+            height: auto;
+            min-height: 21.59cm; /* Alto carta horizontal (8.5 pulgadas) */
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* App Controls (Agenda Navegación) */
+        .app-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .week-navigator {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .btn-nav {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+        
+        .btn-nav:hover {
+            background: #cbd5e1;
+            transform: translateY(-1px);
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        
+        .btn-secondary {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #059669;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        input[type="date"] {
+            padding: 0.4rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-family: inherit;
+            color: #1e293b;
+        }
+        
+        #currentWeekDisplay {
+            font-weight: 700;
+            color: #1e3a8a;
+            font-size: 1.05rem;
+        }
+        
+        /* Cabecera estilo Excel */
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border-bottom: 2px solid #3b82f6;
+        }
+        
+        .title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+            letter-spacing: -0.3px;
+        }
+        
+        .institution-info {
+            font-size: 0.85rem;
+            font-weight: 400;
+            opacity: 0.95;
+            margin-bottom: 0.5rem;
+        }
+        
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.8rem;
+            margin-top: 0.8rem;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            opacity: 0.85;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.15rem;
+        }
+        
+        .detail-value {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        /* Tabla de horario estilo Excel */
+        .schedule-container {
+            flex: 1;
+            padding: 0.8rem 1.2rem 1rem;
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.3rem;
+            table-layout: fixed;
+            font-size: 0.75rem;
+        }
+        
+        thead th {
+            background-color: #e2e8f0;
+            font-weight: 600;
+            text-align: center;
+            padding: 0.5rem 0.3rem;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        tbody td {
+            text-align: center;
+            border: 1px solid #cbd5e1;
+            vertical-align: middle;
+            height: 2.8rem;
+            padding: 0 !important;
+            position: relative;
+        }
+        
+        .period-cell {
+            font-weight: 700;
+            color: #1e3a8a;
+            background-color: #f0f9ff;
+            width: 4.5%;
+        }
+        
+        .time-cell {
+            font-weight: 600;
+            color: #475569;
+            width: 9.5%;
+            padding: 0.4rem 0.3rem !important; /* Excepción para columnas de tiempo/periodo */
+        }
+        
+        .period-cell {
+            padding: 0.4rem 0.3rem !important;
+        }
+        
+        .day-cell {
+            width: 12.14%; /* Distribución equitativa para los 6 días */
+        }
+        
+        /* Estilos de botones de materia */
+        .subject-btn {
+            width: 100%;
+            height: 100%;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            transition: transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 2.8rem;
+            margin: 0;
+            box-sizing: border-box;
+            border-radius: 0;
+        }
+        
+        .subject-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10;
+            position: relative;
+            outline: 2px solid #3b82f6;
+        }
+        
+        .subject-5to-mat {
+            background-color: #ffeaa7; 
+            color: #5d4037;
+            font-weight: 700;
+            border-left: 4px solid #fdcb6e;
+        }
+        
+        .subject-1ro-mat {
+            background-color: #a5d6a7; 
+            color: #1b5e20;
+            font-weight: 700;
+            border-left: 4px solid #66bb6a;
+        }
+        
+        .subject-6to-mat {
+            background-color: #90caf9; 
+            color: #0d47a1;
+            font-weight: 700;
+            border-left: 4px solid #42a5f5;
+        }
+        
+        .subject-4to-fis {
+            background-color: #f8bbd0; 
+            color: #880e4f;
+            font-weight: 700;
+            border-left: 4px solid #ec407a;
+        }
+        
+        .subject-1ro-ttg {
+            background-color: #b39ddb; 
+            color: #311b92;
+            font-weight: 700;
+            border-left: 4px solid #7e57c2;
+        }
+        
+        .subject-5to-apv {
+            background-color: #80cbc4; 
+            color: #004d40;
+            font-weight: 700;
+            border-left: 4px solid #26a69a;
+        }
+        
+        .subject-6to-fis {
+            background-color: #ffcc80; 
+            color: #e65100;
+            font-weight: 700;
+            border-left: 4px solid #ff9800;
+        }
+        
+        .subject-3ro-fis {
+            background-color: #ef9a9a; 
+            color: #b71c1c;
+            font-weight: 700;
+            border-left: 4px solid #ef5350;
+        }
+        
+        .subject-5to-fis {
+            background-color: #c5e1a5; 
+            color: #33691e;
+            font-weight: 700;
+            border-left: 4px solid #9ccc65;
+        }
+        
+        /* Recreo estilo Excel */
+        .recreo-cell {
+            background-color: #d1c4e9;
+            color: #4527a0;
+            font-weight: 700;
+            text-align: center;
+            font-size: 0.8rem;
+            padding: 0.6rem !important;
+            border: 1px solid #b39ddb;
+            letter-spacing: 2px;
+        }
+        
+        /* Fila vacía */
+        .empty-row td {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            height: 2.8rem;
+        }
+        
+        /* Pie de página */
+        .footer {
+            padding: 0.6rem 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.7rem;
+            color: #64748b;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f8fafc;
+        }
+        
+        .print-info {
+            font-style: italic;
+        }
+        
+        /* Firma */
+        .signature {
+            margin-top: 1.2rem;
+            padding-top: 0.8rem;
+            border-top: 1px dashed #cbd5e1;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #475569;
+        }
+        
+        /* Modal Window Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            overflow: auto;
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 90%;
+            max-width: 700px;
+            overflow: hidden;
+            animation: modalFadeIn 0.3s ease-out;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); scale: 0.95; }
+            to { opacity: 1; transform: translateY(0); scale: 1; }
+        }
+        
+        .modal-header {
+            background: #1e3a8a;
+            color: white;
+            padding: 1.2rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.2rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .close-btn {
+            color: #e2e8f0;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        
+        .close-btn:hover {
+            color: white;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .modal-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .modal-section h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.05rem;
+            color: #334155;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-family: inherit;
+            resize: vertical;
+            font-size: 0.95rem;
+            min-height: 120px;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .file-upload-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 1rem;
+        }
+        
+        #modalFileInput {
+            display: none;
+        }
+        
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 0.8rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+        }
+        
+        .file-item:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+        
+        .file-name {
+            font-weight: 500;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 250px;
+        }
+        
+        .file-meta {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        
+        .file-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .file-actions button {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.8rem;
+        }
+        
+        /* Estilos para impresión horizontal */
+        @media print {
+            @page {
+                size: landscape;
+                margin: 0.5cm;
+            }
+            
+            body {
+                background-color: white;
+                padding: 0;
+                font-size: 10pt;
+                margin: 0;
+            }
+            
+            .app-controls, .no-print {
+                display: none !important;
+            }
+            
+            .container {
+                box-shadow: none;
+                border-radius: 0;
+                width: 100%;
+                height: auto;
+                margin: 0;
+                page-break-inside: avoid;
+            }
+            
+            .header {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .subject-btn {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                border: none;
+            }
+            
+            .recreo-cell {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+        
+        /* Instrucciones de impresión */
+        .print-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1e3a8a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.7rem 1.3rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(30, 58, 138, 0.3);
+            transition: all 0.3s;
+            z-index: 100;
+        }
+        
+        .print-button:hover {
+            background: #1e40af;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(30, 58, 138, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- App Controls para Agenda -->
+        <div class="app-controls no-print">
+            <div class="week-navigator">
+                <button class="btn btn-nav" id="prevWeek">◀ Semana Anterior</button>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="date" id="weekSearch" title="Buscar una fecha">
+                    <button class="btn btn-nav" id="currentWeekBtn">📅 Hoy</button>
+                </div>
+                <button class="btn btn-nav" id="nextWeek">Semana Siguiente ▶</button>
+            </div>
+            <div id="currentWeekDisplay">Semana...</div>
+        </div>
+
+        <!-- Cabecera con información de la institución -->
+        <div class="header">
+            <h1 class="title">AGENDA Y HORARIO 2026</h1>
+            <div class="institution-info">DISTRITO: Shinahota • UNIDAD EDUCATIVA: "San Luis"</div>
+            
+            <div class="details-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Director</span>
+                    <span class="detail-value">Rimer Paniagua Reque</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Profesor</span>
+                    <span class="detail-value">Alfredo Casaya Almanza</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Formato</span>
+                    <span class="detail-value">Carta Horizontal</span>
+                </div>
+                <!-- MES DINÁMICO AÑADIDO -->
+                <div class="detail-item">
+                    <span class="detail-label">Mes</span>
+                    <span class="detail-value" id="mes-value">MARZO</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Año</span>
+                    <span class="detail-value">2026</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabla de horario interactivo -->
+        <div class="schedule-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 4.5%;">PER.</th>
+                        <th style="width: 9.5%;">HORAS</th>
+                        <!-- Fechas dinámicas -->
+                        <th class="day-cell" id="day-header-1">LUNES</th>
+                        <th class="day-cell" id="day-header-2">MARTES</th>
+                        <th class="day-cell" id="day-header-3">MIÉRCOLES</th>
+                        <th class="day-cell" id="day-header-4">JUEVES</th>
+                        <th class="day-cell" id="day-header-5">VIERNES</th>
+                        <th class="day-cell" id="day-header-6">SÁBADO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Periodo 1 -->
+                    <tr>
+                        <td class="period-cell">1</td>
+                        <td class="time-cell">08:00-08:40</td>
+                        <td><button class="subject-btn subject-5to-mat" data-subject="5TO MAT">5TO MAT</button></td>
+                        <td><button class="subject-btn subject-1ro-mat" data-subject="1RO MAT">1RO MAT</button></td>
+                        <td><button class="subject-btn subject-6to-mat" data-subject="6TO MAT">6TO MAT</button></td>
+                        <td></td>
+                        <td><button class="subject-btn subject-4to-fis" data-subject="4TO FIS">4TO FIS</button></td>
+                        <td><button class="subject-btn subject-6to-mat" data-subject="6TO MAT">6TO MAT</button></td>
+                    </tr>
+                    
+                    <!-- Periodo 2 -->
+                    <tr>
+                        <td class="period-cell">2</td>
+                        <td class="time-cell">08:40-09:45</td>
+                        <td><button class="subject-btn subject-1ro-mat" data-subject="1RO MAT">1RO MAT</button></td>
+                        <td><button class="subject-btn subject-1ro-mat" data-subject="1RO MAT">1RO MAT</button></td>
+                        <td><button class="subject-btn subject-6to-mat" data-subject="6TO MAT">6TO MAT</button></td>
+                        <td></td>
+                        <td><button class="subject-btn subject-4to-fis" data-subject="4TO FIS">4TO FIS</button></td>
+                        <td></td>
+                    </tr>
+                    
+                    <!-- Recreo -->
+                    <tr>
+                        <td colspan="8" class="recreo-cell">R E C R E O</td>
+                    </tr>
+                    
+                    <!-- Periodo 3 -->
+                    <tr>
+                        <td class="period-cell">3</td>
+                        <td class="time-cell">09:45-10:05</td>
+                        <td><button class="subject-btn subject-1ro-ttg" data-subject="1RO TTG">1RO TTG</button></td>
+                        <!-- Cámbiado APV del Martes al Lunes (NO, era Lunes 5to FIS se va a Martes 3/4 y Martes 5to APV se va a Lunes 5/6) -->
+                        <!-- Aquí es Martes P3/4. Original: 5TO APV. Muevo a 5TO FIS -->
+                        <td><button class="subject-btn subject-5to-fis" data-subject="5TO FIS">5TO FIS</button></td>
+                        <td><button class="subject-btn subject-6to-fis" data-subject="6TO FIS">6TO FIS</button></td>
+                        <td></td>
+                        <td><button class="subject-btn subject-1ro-mat" data-subject="1RO MAT">1RO MAT</button></td>
+                        <td><button class="subject-btn subject-3ro-fis" data-subject="3RO FIS">3RO FIS</button></td>
+                    </tr>
+                    
+                    <!-- Periodo 4 -->
+                    <tr>
+                        <td class="period-cell">4</td>
+                        <td class="time-cell">10:05-11:10</td>
+                        <td><button class="subject-btn subject-1ro-ttg" data-subject="1RO TTG">1RO TTG</button></td>
+                        <!-- Aquí es Martes P3/4. Original: 5TO APV. Muevo a 5TO FIS -->
+                        <td><button class="subject-btn subject-5to-fis" data-subject="5TO FIS">5TO FIS</button></td>
+                        <td><button class="subject-btn subject-6to-fis" data-subject="6TO FIS">6TO FIS</button></td>
+                        <td></td>
+                        <td><button class="subject-btn subject-1ro-mat" data-subject="1RO MAT">1RO MAT</button></td>
+                        <td><button class="subject-btn subject-3ro-fis" data-subject="3RO FIS">3RO FIS</button></td>
+                    </tr>
+                    
+                    <!-- Recreo -->
+                    <tr>
+                        <td colspan="8" class="recreo-cell">R E C R E O</td>
+                    </tr>
+                    
+                    <!-- Periodo 5 -->
+                    <tr>
+                        <td class="period-cell">5</td>
+                        <td class="time-cell">12:00-12:40</td>
+                        <!-- Original: Lunes P5/6: 5TO FIS. Muevo a 5TO APV -->
+                        <td><button class="subject-btn subject-5to-apv" data-subject="5TO APV">5TO APV</button></td>
+                        <td><button class="subject-btn subject-1ro-ttg" data-subject="1RO TTG">1RO TTG</button></td>
+                        <td><button class="subject-btn subject-5to-mat" data-subject="5TO MAT">5TO MAT</button></td>
+                        <td></td>
+                        <td><button class="subject-btn subject-6to-mat" data-subject="6TO MAT">6TO MAT</button></td>
+                        <td><button class="subject-btn subject-5to-mat" data-subject="5TO MAT">5TO MAT</button></td>
+                    </tr>
+                    
+                    <!-- Periodo 6 -->
+                    <tr>
+                        <td class="period-cell">6</td>
+                        <td class="time-cell">12:10-13:00</td>
+                        <!-- Original: Lunes P5/6: 5TO FIS. Muevo a 5TO APV -->
+                        <td><button class="subject-btn subject-5to-apv" data-subject="5TO APV">5TO APV</button></td>
+                        <td><button class="subject-btn subject-1ro-ttg" data-subject="1RO TTG">1RO TTG</button></td>
+                        <td><button class="subject-btn subject-5to-mat" data-subject="5TO MAT">5TO MAT</button></td>
+                        <td></td>
+                        <td><button class="subject-btn subject-6to-mat" data-subject="6TO MAT">6TO MAT</button></td>
+                        <td><button class="subject-btn subject-5to-mat" data-subject="5TO MAT">5TO MAT</button></td>
+                    </tr>
+                    
+                    <!-- Fila 7 (vacía) -->
+                    <tr class="empty-row">
+                        <td class="period-cell">7</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <!-- Firma -->
+            <div class="signature">
+                <p>_________________________________________</p>
+                <p>Prof. Alfredo Casaya Almanza</p>
+            </div>
+        </div>
+        
+        <!-- Pie de página -->
+        <div class="footer">
+            <div class="print-info">Agenda Escolar 2026 - Con base de datos local sólida (IndexedDB)</div>
+            <div>Página 1 de 1</div>
+        </div>
+    </div>
+    
+    <!-- Ventana Modal de Tareas y Documentos -->
+    <div id="subjectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle"><span style="background:rgba(255,255,255,0.2); padding:4px 8px; border-radius:4px;">MATERIA</span></h2>
+                <span class="close-btn">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section">
+                    <h3>📝 Notas y Tareas de la Semana</h3>
+                    <textarea id="modalNotes" placeholder="Escribe aquí las tareas, observaciones o apuntes rápidos para esta materia en la semana seleccionada..."></textarea>
+                    <div style="text-align: right; margin-top: 8px;">
+                        <span id="saveNotesStatus" style="color: #10b981; margin-right: 10px; font-weight: 600; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s;">Guardado ✓</span>
+                        <button class="btn btn-primary" id="saveNotesBtn">💾 Guardar Notas</button>
+                    </div>
+                </div>
+                
+                <div class="modal-section">
+                    <h3>📁 Gestión de Documentos</h3>
+                    <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;">Adjunta cualquier tipo de archivo (Word, Excel, PDF, OpenDocument, imágenes, etc.). Los archivos se guardan en la agenda de forma segura.</p>
+                    <div class="file-upload-wrapper">
+                        <input type="file" id="modalFileInput" multiple>
+                        <button class="btn btn-secondary" onclick="document.getElementById('modalFileInput').click()">📥 Subir Archivos</button>
+                        <span id="uploadStatus"></span>
+                    </div>
+                    
+                    <div class="file-list" id="modalFileList">
+                        <!-- Lista de archivos poblada por JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Botón visible solámente en pantalla -->
+    <button class="print-button no-print" onclick="window.print()">🖨️ Imprimir Horario</button>
+    
+    <script>
+        // CONFIGURACIÓN DE NAVEGACIÓN DE FECHAS
+        let currentSelectedDate = new Date(); 
+        let currentSubject = "";
+
+        function getMonday(d) {
+            const date = new Date(d);
+            date.setHours(12, 0, 0, 0); // Establecer a medio día para evitar saltos por zona horaria
+            const day = date.getDay();
+            const diff = date.getDate() - day + (day === 0 ? -6 : 1); 
+            return new Date(date.setDate(diff));
+        }
+
+        const monthsNames = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
+        const dayNames = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+
+        function getWeekStartStr() {
+            const m = getMonday(currentSelectedDate);
+            return `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}-${String(m.getDate()).padStart(2,'0')}`;
+        }
+
+        function updateUIForCurrentWeek() {
+            const monday = getMonday(currentSelectedDate);
+            const days = [];
+            for(let i=0; i<6; i++) {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                days.push(d);
+            }
+            
+            // 1. Actualizar "MES: MARZO" (El mes del lunes)
+            document.getElementById("mes-value").textContent = monthsNames[monday.getMonth()];
+            
+            // 2. Actualizar las cabeceras (ej. LUNES 16)
+            days.forEach((d, idx) => {
+                document.getElementById(`day-header-${idx+1}`).textContent = `${dayNames[idx]} ${d.getDate()}`;
+            });
+            
+            // 3. Texto del navegador de semana
+            const saturday = days[5];
+            const monMonth = monthsNames[monday.getMonth()].charAt(0) + monthsNames[monday.getMonth()].slice(1).toLowerCase();
+            const satMonth = monthsNames[saturday.getMonth()].charAt(0) + monthsNames[saturday.getMonth()].slice(1).toLowerCase();
+            
+            document.getElementById("currentWeekDisplay").textContent = `Del ${monday.getDate()} de ${monMonth} al ${saturday.getDate()} de ${satMonth}, ${monday.getFullYear()}`;
+            
+            // Sincronizar input date
+            document.getElementById('weekSearch').value = getWeekStartStr();
+        }
+
+        // --- SISTEMA DE ALMACENAMIENTO SÓLIDO (IndexedDB) --- //
+        const DB_NAME = 'AgendaScolarDB';
+        const DB_VERSION = 1;
+        let dbInstance = null;
+
+        const db = {
+            init: () => {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    
+                    request.onerror = (e) => reject("DB Error");
+                    request.onsuccess = (e) => {
+                        dbInstance = e.target.result;
+                        resolve(dbInstance);
+                    };
+                    
+                    request.onupgradeneeded = (e) => {
+                        const dbObj = e.target.result;
+                        if (!dbObj.objectStoreNames.contains('notes')) {
+                            dbObj.createObjectStore('notes', { keyPath: 'id' }); 
+                        }
+                        if (!dbObj.objectStoreNames.contains('files')) {
+                            const fileStore = dbObj.createObjectStore('files', { keyPath: 'id', autoIncrement: true });
+                            fileStore.createIndex('subject_week', 'subject_week', { unique: false });
+                        }
+                    };
+                });
+            },
+            saveNote: (subject, weekStr, text) => {
+                return new Promise((resolve, reject) => {
+                    const id = `${subject}_${weekStr}`;
+                    const tx = dbInstance.transaction('notes', 'readwrite');
+                    const store = tx.objectStore('notes');
+                    const req = store.put({ id, subject, weekStr, text, updated: new Date().toISOString() });
+                    req.onsuccess = () => resolve();
+                    req.onerror = (e) => reject(e);
+                });
+            },
+            getNote: (subject, weekStr) => {
+                return new Promise((resolve, reject) => {
+                    const id = `${subject}_${weekStr}`;
+                    const tx = dbInstance.transaction('notes', 'readonly');
+                    const store = tx.objectStore('notes');
+                    const req = store.get(id);
+                    req.onsuccess = () => resolve(req.result ? req.result.text : '');
+                    req.onerror = (e) => reject(e);
+                });
+            },
+            saveFile: (subject, weekStr, file) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const fileData = {
+                            subject_week: `${subject}_${weekStr}`,
+                            subject,
+                            weekStr,
+                            fileName: file.name,
+                            fileType: file.type,
+                            fileSize: file.size,
+                            fileData: e.target.result,
+                            timestamp: new Date().getTime()
+                        };
+                        const tx = dbInstance.transaction('files', 'readwrite');
+                        const store = tx.objectStore('files');
+                        const req = store.add(fileData);
+                        req.onsuccess = () => resolve();
+                        req.onerror = (err) => reject(err);
+                    };
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsDataURL(file);
+                });
+            },
+            getFiles: (subject, weekStr) => {
+                return new Promise((resolve, reject) => {
+                    const key = `${subject}_${weekStr}`;
+                    const tx = dbInstance.transaction('files', 'readonly');
+                    const store = tx.objectStore('files');
+                    const index = store.index('subject_week');
+                    const req = index.getAll(key);
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = (e) => reject(e);
+                });
+            },
+            deleteFile: (id) => {
+                return new Promise((resolve, reject) => {
+                    const tx = dbInstance.transaction('files', 'readwrite');
+                    const store = tx.objectStore('files');
+                    const req = store.delete(id);
+                    req.onsuccess = () => resolve();
+                    req.onerror = (e) => reject(e);
+                });
+            }
+        };
+
+        // --- INTERFAZ DEL MODAL Y EVENTOS --- //
+        let currentModalFiles = [];
+
+        function renderFiles(files) {
+            currentModalFiles = files;
+            const list = document.getElementById("modalFileList");
+            list.innerHTML = "";
+            
+            if (files.length === 0) {
+                list.innerHTML = "<p style='color:#64748b; font-size:0.9rem; font-style:italic; padding: 10px 0;'>No hay documentos guardados para esta materia en esta semana.</p>";
+                return;
+            }
+            
+            files.forEach(f => {
+                const sizeMb = (f.fileSize / (1024*1024)).toFixed(2);
+                const item = document.createElement("div");
+                item.className = "file-item";
+                
+                // Determinar icono
+                let icon = "📄";
+                if(f.fileType.includes("image")) icon = "🖼️";
+                else if(f.fileType.includes("pdf")) icon = "📕";
+                else if(f.fileType.includes("spreadsheet") || f.fileName.endsWith(".xls") || f.fileName.endsWith(".xlsx") || f.fileName.endsWith(".ods")) icon = "📊";
+                else if(f.fileType.includes("word") || f.fileName.endsWith(".doc") || f.fileName.endsWith(".docx") || f.fileName.endsWith(".odt")) icon = "📘";
+                
+                item.innerHTML = `
+                    <div class="file-info">
+                        <span style="font-size: 1.6rem;">${icon}</span>
+                        <div>
+                            <div class="file-name" title="${f.fileName}">${f.fileName}</div>
+                            <div class="file-meta">${sizeMb} MB • Subido el ${new Date(f.timestamp).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-secondary" data-action="download" data-id="${f.id}">📂 Abrir</button>
+                        <button class="btn btn-danger" data-action="delete" data-id="${f.id}">🗑️ Borrar</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        async function loadModalData() {
+            try {
+                const weekStr = getWeekStartStr();
+                const noteText = await db.getNote(currentSubject, weekStr);
+                const files = await db.getFiles(currentSubject, weekStr);
+                
+                document.getElementById("modalNotes").value = noteText || "";
+                renderFiles(files);
+            } catch(e) {
+                console.error(e);
+                alert("Error cargando base de datos.");
+            }
+        }
+
+        function openModal(subject) {
+            currentSubject = subject;
+            const weekStr = getWeekStartStr();
+            const monday = getMonday(currentSelectedDate);
+            const monMonth = monthsNames[monday.getMonth()].charAt(0) + monthsNames[monday.getMonth()].slice(1).toLowerCase();
+            
+            document.getElementById("modalTitle").innerHTML = `<span style="background:rgba(255,255,255,0.2); padding:4px 8px; border-radius:4px; margin-right:8px;">${subject}</span> Sem. ${monday.getDate()} de ${monMonth}`;
+            
+            document.getElementById("modalNotes").value = "Cargando...";
+            document.getElementById("modalFileList").innerHTML = "Cargando...";
+            document.getElementById("subjectModal").style.display = "block";
+            
+            loadModalData();
+        }
+
+        // Delegación de eventos para la lista de archivos
+        document.getElementById("modalFileList").addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            
+            const id = parseInt(btn.dataset.id, 10);
+            const action = btn.dataset.action;
+            
+            if (action === 'download') {
+                const file = currentModalFiles.find(f => f.id === id);
+                if (file) {
+                    fetch(file.fileData)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            // Asegurar el tipo MIME correcto para evitar descargas forzadas en formatos que el navegador puede leer
+                            let mimeType = file.fileType || '';
+                            const ext = file.fileName.split('.').pop().toLowerCase();
+                            const knownMimeTypes = {
+                                'pdf': 'application/pdf',
+                                'txt': 'text/plain',
+                                'html': 'text/html',
+                                'htm': 'text/html',
+                                'png': 'image/png',
+                                'jpg': 'image/jpeg',
+                                'jpeg': 'image/jpeg',
+                                'gif': 'image/gif',
+                                'svg': 'image/svg+xml',
+                                'mp4': 'video/mp4',
+                                'mp3': 'audio/mpeg'
+                            };
+                            
+                            if (knownMimeTypes[ext]) {
+                                mimeType = knownMimeTypes[ext];
+                            }
+                            
+                            // Recrear blob con el tipo explícito para que el navegador lo "abra" en lugar de "bajarlo"
+                            const typedBlob = new Blob([blob], { type: mimeType });
+                            const url = window.URL.createObjectURL(typedBlob);
+                            
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.target = '_blank'; // Abrir en otra pestaña
+                            // No usamos el atributo "download" para forzar que el navegador intente abrirlo
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        });
+                }
+            } else if (action === 'delete') {
+                db.deleteFile(id).then(() => {
+                    loadModalData();
+                });
+            }
+        });
+
+        // Eventos Globales (DOM)
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializar BD
+            db.init().then(() => {
+                console.log("AgendaScolarDB lista y sólida.");
+            }).catch(e => {
+                console.error("DB Error: ", e);
+                alert("La base de datos de la agenda no pudo iniciarse.");
+            });
+
+            // Forzar UI a la semana actual
+            updateUIForCurrentWeek();
+            
+            // Navegación
+            document.getElementById('prevWeek').addEventListener('click', () => {
+                currentSelectedDate.setDate(currentSelectedDate.getDate() - 7);
+                onWeekChanged();
+            });
+
+            document.getElementById('nextWeek').addEventListener('click', () => {
+                currentSelectedDate.setDate(currentSelectedDate.getDate() + 7);
+                onWeekChanged();
+            });
+
+            document.getElementById('currentWeekBtn').addEventListener('click', () => {
+                currentSelectedDate = new Date();
+                onWeekChanged();
+            });
+
+            document.getElementById('weekSearch').addEventListener('change', (e) => {
+                if (e.target.value) {
+                    const parts = e.target.value.split('-'); 
+                    currentSelectedDate = new Date(parts[0], parts[1]-1, parts[2], 12, 0, 0);
+                    onWeekChanged();
+                }
+            });
+
+            function onWeekChanged() {
+                updateUIForCurrentWeek();
+                const modal = document.getElementById("subjectModal");
+                if (modal.style.display === "block") {
+                    openModal(currentSubject); // Refrescar si está abierto
+                }
+            }
+
+            // Click en Materias
+            document.querySelectorAll('.subject-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    openModal(btn.dataset.subject);
+                });
+            });
+
+            // Modal: Cerrar
+            document.querySelector('.close-btn').addEventListener('click', () => {
+                document.getElementById('subjectModal').style.display = 'none';
+            });
+
+            window.addEventListener('click', (e) => {
+                const modal = document.getElementById('subjectModal');
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+
+            // Modal: Guardar Notas
+            let saveTimeout = null;
+            const txtNotes = document.getElementById("modalNotes");
+            const statusLabel = document.getElementById("saveNotesStatus");
+            
+            function autoSave() {
+                db.saveNote(currentSubject, getWeekStartStr(), txtNotes.value).then(() => {
+                    statusLabel.style.opacity = "1";
+                    setTimeout(() => { statusLabel.style.opacity = "0"; }, 2000);
+                }).catch(e => console.error(e));
+            }
+
+            txtNotes.addEventListener('input', () => {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(autoSave, 1000); // 1s auto-guardado
+            });
+
+            document.getElementById("saveNotesBtn").addEventListener('click', () => {
+                clearTimeout(saveTimeout);
+                autoSave();
+            });
+
+            // Modal: Subir Archivos
+            document.getElementById("modalFileInput").addEventListener('change', async (e) => {
+                const files = e.target.files;
+                if (files.length === 0) return;
+                
+                const status = document.getElementById("uploadStatus");
+                status.innerHTML = `<span style='color:#3b82f6; font-size: 0.9rem;'>Subiendo ${files.length} archivo(s)...</span>`;
+                
+                try {
+                    for(let i = 0; i < files.length; i++) {
+                        await db.saveFile(currentSubject, getWeekStartStr(), files[i]);
+                    }
+                    status.innerHTML = "<span style='color:#10b981; font-weight:600; font-size: 0.9rem;'>¡Guardado con éxito!</span>";
+                    setTimeout(() => { status.innerHTML = ""; }, 3000);
+                    await loadModalData();
+                } catch(err) {
+                    console.error("Upload error", err);
+                    status.innerHTML = "<span style='color:#ef4444; font-size: 0.9rem;'>Error al guardar archivos en DB.</span>";
+                }
+                
+                e.target.value = '';
+            });
+        });
+    </script>
+</body>
+</html>
