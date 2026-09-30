@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registro Pedagógico</title>
+    <style>
+      @page {
+        size: portrait;
+        margin: 0.25in;
+      }
+      
+      @media print {
+        @page {
+          size: portrait !important;
+        }
+        
+        html, body {
+          width: 8.5in !important;
+          height: 11in !important;
+        }
+      }
+    </style>
+    <script>
+      window.matchMedia('print').addEventListener('change', e => {
+        if (e.matches) {
+          setTimeout(() => {
+            document.querySelectorAll('style, link[rel="stylesheet"]').forEach(s => {
+              if (s.textContent && s.textContent.includes('@page')) {
+                s.textContent = s.textContent.replace(/landscape/g, 'portrait');
+              }
+            });
+          }, 100);
+        }
+      });
+    </script>
+    <script type="module" crossorigin src="/assets/index-Arym3vcL.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-atMrMXg8.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

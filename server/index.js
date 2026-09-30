@@ -178,7 +178,17 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
+if (fs.existsSync(clientDistPath)) {
+  console.log('[Static] Sirviendo interfaz web desde:', clientDistPath);
+  app.use(express.static(clientDistPath));
+}
+
 app.get('/', (req, res) => {
+  const indexPath = path.join(clientDistPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
   res.send('Pedagogical Registry API');
 });
 
@@ -2735,11 +2745,8 @@ app.listen(PORT, () => {
 
 
 
-// Servir Frontend compilado en Producción (Render / Cloud)
-const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
+// SPA fallback para rutas de la aplicación web en producción (/login, /filiacion, etc.)
 if (fs.existsSync(clientDistPath)) {
-  console.log('[Static] Sirviendo interfaz web desde:', clientDistPath);
-  app.use(express.static(clientDistPath));
   app.use((req, res, next) => {
     if (req.method === 'GET' && !req.path.startsWith('/api')) {
       return res.sendFile(path.join(clientDistPath, 'index.html'));
