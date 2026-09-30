@@ -2740,11 +2740,11 @@ const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
 if (fs.existsSync(clientDistPath)) {
   console.log('[Static] Sirviendo interfaz web desde:', clientDistPath);
   app.use(express.static(clientDistPath));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) {
-      return next();
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      return res.sendFile(path.join(clientDistPath, 'index.html'));
     }
-    res.sendFile(path.join(clientDistPath, 'index.html'));
+    next();
   });
 }
 
