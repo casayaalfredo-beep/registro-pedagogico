@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Cloud,
     Download,
@@ -35,7 +36,14 @@ const SyncModal = ({ isOpen, onClose }) => {
             fetchStats();
             setMessage(null);
         }
-    }, [isOpen]);
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && isOpen) {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
     const fetchStats = async () => {
         try {
@@ -190,9 +198,17 @@ const SyncModal = ({ isOpen, onClose }) => {
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col my-8">
+    return createPortal(
+        <div 
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) onClose();
+            }}
+        >
+            <div 
+                className="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[92vh]"
+                onClick={(e) => e.stopPropagation()}
+            >
                 
                 {/* Header */}
                 <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-900 p-6 text-white flex items-center justify-between">
@@ -468,7 +484,8 @@ const SyncModal = ({ isOpen, onClose }) => {
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

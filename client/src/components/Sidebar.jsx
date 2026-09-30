@@ -117,7 +117,10 @@ const Sidebar = ({ onLogout, isOpen = false, onClose, className = '' }) => {
             </nav>
             <div className="p-3 border-t border-slate-700 space-y-2 flex-shrink-0">
                 <button
-                    onClick={() => setShowSyncModal(true)}
+                    onClick={() => {
+                        setShowSyncModal(true);
+                        if (onClose) onClose();
+                    }}
                     className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-purple-900/60 to-indigo-900/60 hover:from-purple-800/80 hover:to-indigo-800/80 text-purple-200 border border-purple-500/30 transition text-sm group shadow-sm"
                     title="Sincronizar y Respaldar tus datos (Google Drive / Celular)"
                 >
