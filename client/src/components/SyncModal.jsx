@@ -24,7 +24,7 @@ const SyncModal = ({ isOpen, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState(null);
     const [message, setMessage] = useState(null); // { type: 'success' | 'error' | 'info', text: string }
-    const [cloudUrl, setCloudUrl] = useState(() => localStorage.getItem('rp_cloud_url') || '');
+    const [cloudUrl, setCloudUrl] = useState(() => localStorage.getItem('rp_cloud_url') || 'https://registro-pedagogico.onrender.com');
     const [cloudToken, setCloudToken] = useState(() => localStorage.getItem('rp_cloud_token') || 'registro_pedagogico_2026_seguro');
     const [lastSyncTime, setLastSyncTime] = useState(() => localStorage.getItem('rp_last_sync') || null);
     
