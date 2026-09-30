@@ -69,12 +69,13 @@ const authenticateToken = (req, res, next) => {
 
 const authMiddleware = (req, res, next) => {
   const path = req.path;
-  console.log('[authMiddleware] Path:', path);
-  if (path === '/' || path === '/api/login' || path.startsWith('/api/grade-headers') || path.startsWith('/api/repositorio/download') || path.startsWith('/api/centralizador-general') || path.startsWith('/api/seguimiento') || path.startsWith('/api/asistencia-lunes') || path.startsWith('/api/fechas-asistencia-lunes') || path.startsWith('/api/avance-curricular') || path.startsWith('/api/agenda') || path.startsWith('/api/planes-programas') || path.startsWith('/api/sync')) {
-    console.log('[authMiddleware] Allowing:', path);
+  // Permitir todos los archivos estáticos y rutas del frontend
+  if (!path.startsWith('/api')) {
     return next();
   }
-  console.log('[authMiddleware] Requiring auth for:', path);
+  if (path === '/api/login' || path.startsWith('/api/grade-headers') || path.startsWith('/api/repositorio/download') || path.startsWith('/api/centralizador-general') || path.startsWith('/api/seguimiento') || path.startsWith('/api/asistencia-lunes') || path.startsWith('/api/fechas-asistencia-lunes') || path.startsWith('/api/avance-curricular') || path.startsWith('/api/agenda') || path.startsWith('/api/planes-programas') || path.startsWith('/api/sync')) {
+    return next();
+  }
   authenticateToken(req, res, next);
 };
 
