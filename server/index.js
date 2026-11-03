@@ -38,6 +38,7 @@ const upload = multer({ storage: storage });
 const uploadMemory = multer({ storage: multer.memoryStorage() });
 const siePdfParser = require('./services/siePdfParser');
 const syncService = require('./services/syncService');
+const omrSupabaseSync = require('./services/omrSupabaseSync');
 
 console.log('[INIT] Setting up CORS and JSON middleware');
 app.use((req, res, next) => {
@@ -73,7 +74,7 @@ const authMiddleware = (req, res, next) => {
   if (!path.startsWith('/api')) {
     return next();
   }
-  if (path === '/api/login' || path.startsWith('/api/grade-headers') || path.startsWith('/api/repositorio/download') || path.startsWith('/api/centralizador-general') || path.startsWith('/api/seguimiento') || path.startsWith('/api/asistencia-lunes') || path.startsWith('/api/fechas-asistencia-lunes') || path.startsWith('/api/avance-curricular') || path.startsWith('/api/agenda') || path.startsWith('/api/planes-programas') || path.startsWith('/api/sync')) {
+  if (path === '/api/login' || path.startsWith('/api/grade-headers') || path.startsWith('/api/repositorio/download') || path.startsWith('/api/centralizador-general') || path.startsWith('/api/seguimiento') || path.startsWith('/api/asistencia-lunes') || path.startsWith('/api/fechas-asistencia-lunes') || path.startsWith('/api/avance-curricular') || path.startsWith('/api/agenda') || path.startsWith('/api/planes-programas') || path.startsWith('/api/sync') || path.startsWith('/api/omr')) {
     return next();
   }
   authenticateToken(req, res, next);
@@ -177,6 +178,14 @@ app.post('/api/login', async (req, res) => {
     console.error('Error en login:', error.message);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
+});
+
+const omrPortalTopPath = path.join(__dirname, '..', 'omr-portal', 'index.html');
+app.get(['/omr', '/omr/', '/omr.html'], (req, res) => {
+  if (fs.existsSync(omrPortalTopPath)) {
+    return res.sendFile(omrPortalTopPath);
+  }
+  res.status(404).send('Portal OMR no encontrado.');
 });
 
 const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
@@ -1498,9 +1507,9 @@ app.post('/api/notas/sync-asistencia', async (req, res) => {
       return res.status(400).json({ error: 'configId y trimestre deben ser números válidos' });
     }
 
-    // 1. Contar N = total de sesiones registradas para este curso/trimestre
+    // 1. Contar N = total de sesiones registradas para este curso/trimestre (solo asistencia normal de clases)
     const fechas = await prisma.$queryRawUnsafe(
-      `SELECT COUNT(*) as total FROM "FechaAsistencia" WHERE configId = ? AND trimestre = ? AND etiqueta != ''`,
+      `SELECT COUNT(*) as total FROM "FechaAsistencia" WHERE configId = ? AND trimestre = ? AND etiqueta != '' AND (tipo = 'NORMAL' OR tipo IS NULL)`,
       cId, tri
     );
     const N = Number(fechas[0]?.total ?? 0);
@@ -1531,17 +1540,25 @@ app.post('/api/notas/sync-asistencia', async (req, res) => {
       const registros = await prisma.asistencia.findMany({
         where: {
           estudianteId: est.id,
-          trimestre: tri
+          trimestre: tri,
+          tipo: 'NORMAL'
         },
         select: { estado: true }
       });
 
+      const asistenciasEfectivas = registros.filter(r => r.estado === 'A' || r.estado === 'R' || r.estado === 'L').length;
       const faltas    = registros.filter(r => r.estado === 'F').length;
       const retrasos  = registros.filter(r => r.estado === 'R').length;
 
-      // Fórmula proporcional — mínimo 0, máximo 10, siempre número entero
-      const ser1 = Math.max(0, Math.round(10 - faltas   * valorPorEvento));
-      const ser2 = Math.max(0, Math.round(10 - retrasos * valorPorEvento));
+      // Si el estudiante no tiene ninguna asistencia registrada (A, R o L) en el trimestre
+      // (fila en blanco o únicamente faltas sin haber asistido nunca), no debe tener nota en Asistencia ni Puntualidad.
+      let ser1 = 0;
+      let ser2 = 0;
+      if (asistenciasEfectivas > 0) {
+        // Fórmula proporcional — mínimo 0, máximo 10, siempre número entero
+        ser1 = Math.max(0, Math.round(10 - faltas   * valorPorEvento));
+        ser2 = Math.max(0, Math.round(10 - retrasos * valorPorEvento));
+      }
 
       // 4. Upsert en Nota — solo modificar ser_1 y ser_2, respetar el resto de campos
       const existing = await prisma.nota.findFirst({
@@ -1549,10 +1566,6 @@ app.post('/api/notas/sync-asistencia', async (req, res) => {
       });
 
       if (existing) {
-        // Recalcular notaTrimestre con los nuevos valores de SER
-        const promSer = ser1; // ser_1 es la nota representativa de SER en este contexto
-        // Mantenemos el promedio SER con todos sus subcampos actualizados proporcionalmente:
-        // solo tocamos ser_1 y ser_2; el resto de subcampos SER no se alteran.
         const newSer1 = ser1;
         const newSer2 = ser2;
 
@@ -1579,8 +1592,9 @@ app.post('/api/notas/sync-asistencia', async (req, res) => {
           }
         });
         resultados.push({ estudianteId: est.id, ser_1: updated.ser_1, ser_2: updated.ser_2, action: 'updated' });
-      } else {
-        // Crear nota nueva con solo ser_1 y ser_2 calculados; el resto en 0
+      } else if (asistenciasEfectivas > 0) {
+        // Crear nota nueva solo si el estudiante tiene asistencias registradas en el trimestre
+        const newPromSer = Math.round(((ser1 > 0 ? ser1 : 0) + (ser2 > 0 ? ser2 : 0)) / ((ser1 > 0 ? 1 : 0) + (ser2 > 0 ? 1 : 0) || 1));
         const created = await prisma.nota.create({
           data: {
             estudianteId: est.id,
@@ -1593,7 +1607,7 @@ app.post('/api/notas/sync-asistencia', async (req, res) => {
             hacer_1: 0, hacer_2: 0, hacer_3: 0, hacer_4: 0,
             hacer_5: 0, hacer_6: 0, hacer_7: 0,
             auto_ser: 0, auto_decidir: 0, notas_extras: 0,
-            notaTrimestre: 0
+            notaTrimestre: newPromSer
           }
         });
         resultados.push({ estudianteId: est.id, ser_1: created.ser_1, ser_2: created.ser_2, action: 'created' });
@@ -2738,20 +2752,115 @@ app.post('/api/sync/remote-receive', async (req, res) => {
   }
 });
 
-// 6. Bajar cambios desde la nube hacia la laptop (1-Clic instantáneo)
-app.post('/api/sync/pull-from-cloud', async (req, res) => {
-  try {
-    const { cloudUrl } = req.body;
-    if (!cloudUrl) {
-      return res.status(400).json({ error: 'URL de la nube requerida' });
+// Helpers para sincronización resiliente con la nube
+function formatSyncError(error, cleanUrl) {
+  if (!error) return 'Error desconocido al sincronizar.';
+  
+  const cause = error.cause;
+  const causeCode = cause?.code || error.code;
+  const causeMsg = cause?.message || '';
+
+  if (error.name === 'TimeoutError' || cause?.name === 'TimeoutError' || causeCode === 'UND_ERR_CONNECT_TIMEOUT' || causeCode === 'ETIMEDOUT') {
+    return `Tiempo de espera agotado al conectar con "${cleanUrl}". Como el servidor gratuito de Render entra en reposo por inactividad, puede estar tardando unos segundos más en despertar. Por favor espera 30 segundos y vuelve a presionar el botón.`;
+  }
+  if (causeCode === 'ENOTFOUND') {
+    return `No se pudo encontrar la dirección del servidor "${cleanUrl}". Verifica que tengas conexión a internet activa y que la URL esté escrita correctamente.`;
+  }
+  if (causeCode === 'ECONNREFUSED') {
+    return `La conexión fue rechazada en "${cleanUrl}". El servidor en la nube no está respondiendo en este momento.`;
+  }
+  if (causeCode === 'ECONNRESET') {
+    return `La conexión con el servidor en la nube se interrumpió inesperadamente (connection reset). Si el servidor estaba despertando de su suspensión, reintenta ahora.`;
+  }
+  if (error.message === 'fetch failed') {
+    return `No se pudo conectar con el servidor en la nube (${cleanUrl}). En el plan gratuito de Render, el servidor entra en reposo tras 15 minutos sin uso. Este primer intento lo despierta; por favor reintenta en unos instantes.`;
+  }
+  return error.message || 'Error de comunicación con el servidor en la nube.';
+}
+
+async function ensureCloudServerAwake(cleanUrl, maxRetries = 2) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[Sync] Verificando servidor en la nube (intento ${attempt}/${maxRetries}): ${cleanUrl}/api/sync/status`);
+      const res = await fetch(`${cleanUrl}/api/sync/status`, {
+        signal: AbortSignal.timeout(35000)
+      });
+      if (res.ok) {
+        console.log(`[Sync] Servidor en la nube activo y respondiendo correctamente.`);
+        return true;
+      }
+      console.warn(`[Sync] Intento ${attempt}: Servidor respondió con estado ${res.status}`);
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[Sync] Intento ${attempt} no respondió (${err.message}): esperando arranque de Render...`);
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 4000));
+      }
     }
-    const cleanUrl = cloudUrl.replace(/\/+$/, '');
-    const downloadUrl = `${cleanUrl}/api/sync/download-db`;
+  }
+  if (lastErr) {
+    throw lastErr;
+  }
+  return true;
+}
+
+// 6. Probar conexión y despertar servidor en la nube
+app.post('/api/sync/test-connection', async (req, res) => {
+  const { cloudUrl } = req.body;
+  if (!cloudUrl) {
+    return res.status(400).json({ success: false, error: 'URL de la nube requerida' });
+  }
+  const cleanUrl = cloudUrl.trim().replace(/\/+$/, '');
+  const startTime = Date.now();
+  try {
+    const remoteRes = await fetch(`${cleanUrl}/api/sync/status`, {
+      signal: AbortSignal.timeout(45000)
+    });
+    const latency = Date.now() - startTime;
+    if (!remoteRes.ok) {
+      return res.status(remoteRes.status).json({
+        success: false,
+        error: `El servidor respondió con código HTTP ${remoteRes.status}`,
+        latency
+      });
+    }
+    const data = await remoteRes.json();
+    return res.json({
+      success: true,
+      awake: true,
+      latency,
+      stats: data
+    });
+  } catch (error) {
+    console.error('[Sync Route] Error en test-connection:', error);
+    const friendlyError = formatSyncError(error, cleanUrl);
+    return res.status(500).json({
+      success: false,
+      error: friendlyError
+    });
+  }
+});
+
+// 7. Bajar cambios desde la nube hacia la laptop (1-Clic instantáneo)
+app.post('/api/sync/pull-from-cloud', async (req, res) => {
+  const { cloudUrl } = req.body;
+  if (!cloudUrl) {
+    return res.status(400).json({ error: 'URL de la nube requerida' });
+  }
+  const cleanUrl = cloudUrl.trim().replace(/\/+$/, '');
+  const downloadUrl = `${cleanUrl}/api/sync/download-db`;
+
+  try {
+    // Asegurar que el servidor esté despierto
+    await ensureCloudServerAwake(cleanUrl);
 
     console.log('[Sync] Descargando base de datos desde la nube:', downloadUrl);
-    const remoteRes = await fetch(downloadUrl);
+    const remoteRes = await fetch(downloadUrl, {
+      signal: AbortSignal.timeout(60000)
+    });
     if (!remoteRes.ok) {
-      throw new Error(`El servidor en la nube respondió con error ${remoteRes.status}`);
+      throw new Error(`El servidor en la nube respondió con error HTTP ${remoteRes.status}`);
     }
 
     const buffer = Buffer.from(await remoteRes.arrayBuffer());
@@ -2769,19 +2878,22 @@ app.post('/api/sync/pull-from-cloud', async (req, res) => {
     });
   } catch (error) {
     console.error('[Sync] Error al bajar de la nube:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: formatSyncError(error, cleanUrl) });
   }
 });
 
-// 7. Subir cambios desde la laptop hacia la nube (1-Clic instantáneo)
+// 8. Subir cambios desde la laptop hacia la nube (1-Clic instantáneo)
 app.post('/api/sync/push-to-cloud', async (req, res) => {
+  const { cloudUrl } = req.body;
+  if (!cloudUrl) {
+    return res.status(400).json({ error: 'URL de la nube requerida' });
+  }
+  const cleanUrl = cloudUrl.trim().replace(/\/+$/, '');
+  const uploadUrl = `${cleanUrl}/api/sync/restore-db`;
+
   try {
-    const { cloudUrl } = req.body;
-    if (!cloudUrl) {
-      return res.status(400).json({ error: 'URL de la nube requerida' });
-    }
-    const cleanUrl = cloudUrl.replace(/\/+$/, '');
-    const uploadUrl = `${cleanUrl}/api/sync/restore-db`;
+    // Asegurar que el servidor esté despierto
+    await ensureCloudServerAwake(cleanUrl);
 
     console.log('[Sync] Subiendo base de datos a la nube:', uploadUrl);
     if (!fs.existsSync(syncService.DB_PATH)) {
@@ -2795,10 +2907,21 @@ app.post('/api/sync/push-to-cloud', async (req, res) => {
 
     const remoteRes = await fetch(uploadUrl, {
       method: 'POST',
-      body: formData
+      body: formData,
+      signal: AbortSignal.timeout(60000)
     });
 
-    const result = await remoteRes.json();
+    let result = {};
+    const textResponse = await remoteRes.text();
+    try {
+      result = JSON.parse(textResponse);
+    } catch (e) {
+      if (!remoteRes.ok) {
+        throw new Error(`El servidor en la nube respondió con error HTTP ${remoteRes.status}`);
+      }
+      result = { message: textResponse };
+    }
+
     if (!remoteRes.ok) {
       throw new Error(result.error || `Error del servidor en la nube (${remoteRes.status})`);
     }
@@ -2810,13 +2933,199 @@ app.post('/api/sync/push-to-cloud', async (req, res) => {
     });
   } catch (error) {
     console.error('[Sync] Error al subir a la nube:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: formatSyncError(error, cleanUrl) });
+  }
+});
+
+// ============================================================
+// RUTAS DEL ESCÁNER ÓPTICO OMR AUTOMÁTICO (CELULAR <-> SUPABASE <-> REGISTRO)
+// ============================================================
+
+const omrPortalIndexPath = path.join(__dirname, '..', 'omr-portal', 'index.html');
+
+// Servir el Portal Móvil OMR en /omr (tanto en Wi-Fi Local como en Render)
+app.get(['/omr', '/omr/'], (req, res) => {
+  if (fs.existsSync(omrPortalIndexPath)) {
+    return res.sendFile(omrPortalIndexPath);
+  }
+  res.status(404).send('Portal OMR no encontrado.');
+});
+
+// 1. Estado del demonio OMR, URLs QR (Nube y Wi-Fi Local) y SQL Schema para Supabase
+app.get('/api/omr/status', async (req, res) => {
+  try {
+    const schemaPath = path.join(__dirname, '..', 'supabase', 'omr_schema.sql');
+    const schemaSql = fs.existsSync(schemaPath) ? fs.readFileSync(schemaPath, 'utf8') : '';
+    const localLanUrls = omrSupabaseSync.getLocalLanUrls(PORT);
+    const supaCfg = omrSupabaseSync.getSupabaseConfig();
+
+    res.json({
+      ok: true,
+      omrState: omrSupabaseSync.omrState,
+      supabaseConfigured: supaCfg.configured,
+      supabaseUrl: supaCfg.url,
+      portalPin: supaCfg.pin,
+      localLanUrls,
+      defaultLocalUrl: localLanUrls[0] || `http://localhost:${PORT}/omr`,
+      cloudPortalUrl: 'https://registro-pedagogico.onrender.com/omr',
+      schemaSql
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 2. Contexto completo (Cursos, Nómina con N° de Lista 1..N, Evaluaciones y Calificaciones)
+app.get('/api/omr/contexto', async (req, res) => {
+  try {
+    await omrSupabaseSync.initLocalOmrTables(prisma);
+    const { configs, allStudents } = await omrSupabaseSync.getLocalCoursesAndRosters(prisma);
+
+    const cursos = configs.map(c => ({
+      config_id: c.id,
+      curso: c.curso || '',
+      area: c.area || '',
+      maestro: c.maestro || '',
+      unidad_educativa: c.unidadEducativa || '',
+      gestion: String(c.gestion || '2026')
+    }));
+
+    const localEvals = await prisma.$queryRawUnsafe(`SELECT * FROM "OmrEvaluacion" WHERE "activa" = 1 ORDER BY "updatedAt" DESC`);
+    const evaluaciones = (localEvals || []).map(ev => {
+      let claves = {};
+      try { claves = JSON.parse(ev.clavesJson || '{}'); } catch {}
+      return {
+        id: ev.id,
+        config_id: Number(ev.configId),
+        trimestre: Number(ev.trimestre) || 1,
+        campo_destino: ev.campoDestino || 'saber_1',
+        titulo: ev.titulo || 'Evaluación OMR',
+        fecha: ev.fecha || '',
+        puntaje_maximo: Number(ev.puntajeMaximo) || 45,
+        total_preguntas: Number(ev.totalPreguntas) || 15,
+        claves_json: claves
+      };
+    });
+
+    const localCalifs = await prisma.$queryRawUnsafe(`SELECT * FROM "OmrCalificacion" ORDER BY "escaneadoAt" DESC LIMIT 300`);
+    const calificaciones = (localCalifs || []).map(ca => ({
+      id: ca.id,
+      evaluacion_id: ca.evaluacionId,
+      config_id: Number(ca.configId),
+      trimestre: Number(ca.trimestre) || 1,
+      campo_destino: ca.campoDestino || 'saber_1',
+      titulo_evaluacion: ca.tituloEvaluacion || '',
+      estudiante_id: ca.estudianteId,
+      nombre_estudiante: ca.nombreEstudiante || '',
+      numero_lista: Number(ca.numeroLista),
+      variante: ca.variante || 'COL1',
+      aciertos: Number(ca.aciertos) || 0,
+      total_preguntas: Number(ca.totalPreguntas) || 15,
+      puntaje: Number(ca.puntaje) || 0,
+      sincronizado_pc: true,
+      escaneado_at: ca.escaneadoAt
+    }));
+
+    res.json({
+      ok: true,
+      cursos,
+      estudiantes: allStudents,
+      evaluaciones,
+      calificaciones
+    });
+  } catch (error) {
+    console.error('[GET /api/omr/contexto] Error:', error.message);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 3. Crear o actualizar Evaluación OMR y Solucionario (Columna 1 y Columna 2)
+app.post('/api/omr/evaluaciones', async (req, res) => {
+  try {
+    await omrSupabaseSync.initLocalOmrTables(prisma);
+    const {
+      id, config_id, configId, trimestre, campo_destino, campoDestino,
+      titulo, fecha, puntaje_maximo, total_preguntas, claves_json
+    } = req.body;
+
+    const cId = parseInt(config_id || configId);
+    const tri = parseInt(trimestre) || 1;
+    const { notaField } = omrSupabaseSync.normalizeFieldPair(campo_destino || campoDestino || 'saber_1');
+    const evalId = String(id || `eval_${cId}_${tri}_${notaField}`).trim();
+    const evalTitle = String(titulo || 'Evaluación OMR').trim();
+    const evalDate = String(fecha || new Date().toISOString().split('T')[0]).trim();
+    const clavesStr = typeof claves_json === 'string'
+      ? claves_json
+      : JSON.stringify(claves_json || omrSupabaseSync.DEFAULT_DECIMALES_KEYS);
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "OmrEvaluacion" ("id", "configId", "trimestre", "campoDestino", "titulo", "fecha", "puntajeMaximo", "totalPreguntas", "clavesJson", "activa", "updatedAt")
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+       ON CONFLICT("id") DO UPDATE SET
+         "configId" = excluded."configId",
+         "trimestre" = excluded."trimestre",
+         "campoDestino" = excluded."campoDestino",
+         "titulo" = excluded."titulo",
+         "fecha" = excluded."fecha",
+         "puntajeMaximo" = excluded."puntajeMaximo",
+         "totalPreguntas" = excluded."totalPreguntas",
+         "clavesJson" = excluded."clavesJson",
+         "activa" = 1,
+         "updatedAt" = CURRENT_TIMESTAMP`,
+      evalId, cId, tri, notaField, evalTitle, evalDate,
+      parseFloat(puntaje_maximo) || 45,
+      parseInt(total_preguntas) || 15,
+      clavesStr
+    );
+
+    // Sincronizar en segundo plano con Supabase Cloud
+    omrSupabaseSync.pushRosterAndEvaluationsToSupabase(prisma).catch(() => {});
+
+    res.json({ ok: true, id: evalId });
+  } catch (error) {
+    console.error('[POST /api/omr/evaluaciones] Error:', error.message);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 4. Registrar calificación OMR directamente (Modo Wi-Fi Local o desde el generador HTML)
+app.post('/api/omr/registrar-calificacion', async (req, res) => {
+  try {
+    await omrSupabaseSync.initLocalOmrTables(prisma);
+    const applied = await omrSupabaseSync.applyScannedGradeToRegistro(
+      prisma,
+      syncService,
+      req.body,
+      { createBackup: true, origen: 'LOCAL_WIFI' }
+    );
+    res.json({ ok: true, applied });
+  } catch (error) {
+    console.error('[POST /api/omr/registrar-calificacion] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+});
+
+// 5. Forzar sincronización inmediata con Supabase Cloud (Subir nómina + Descargar calificaciones pendientes)
+app.post('/api/omr/sync-now', async (req, res) => {
+  try {
+    const pushRes = await omrSupabaseSync.pushRosterAndEvaluationsToSupabase(prisma);
+    const pullRes = await omrSupabaseSync.pullPendingGradesFromSupabase(prisma, syncService);
+    res.json({
+      ok: true,
+      push: pushRes,
+      pull: pullRes,
+      omrState: omrSupabaseSync.omrState
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
   }
 });
 
 app.listen(PORT, () => {
   // Respaldo preventivo al iniciar el servidor
   syncService.createAutoBackup('startup');
+  // Iniciar demonio de sincronización automática OMR (Supabase <-> Registro Pedagógico)
+  omrSupabaseSync.startOmrSyncDaemon(prisma, syncService);
   console.log(`Server running on port ${PORT}`);
 });
 

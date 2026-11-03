@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Escáner OMR Automático — Registro Pedagógico 2026</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+    .topbar {
+      background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      padding: 12px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .topbar-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .topbar-title h1 {
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      line-height: 1.15;
+    }
+    .topbar-title p {
+      font-size: 0.68rem;
+      color: #cbd5e1;
+    }
+    .conn-pill {
+      font-size: 0.66rem;
+      font-weight: 800;
+      padding: 5px 9px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .conn-pill.online { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4); }
+    .conn-pill.cloud { background: rgba(99, 102, 241, 0.25); color: #c7d2fe; border-color: rgba(99, 102, 241, 0.45); }
+    .conn-pill.offline { background: rgba(244, 63, 94, 0.2); color: #fda4af; border-color: rgba(244, 63, 94, 0.4); }
+
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    }
+    .panel-title {
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #a5b4fc;
+      margin-bottom: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
+    .form-group label {
+      font-size: 0.66rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    select, input[type="text"], input[type="number"], input[type="password"] {
+      width: 100%;
+      background: #0f172a;
+      color: #ffffff;
+      border: 1px solid #475569;
+      border-radius: 9px;
+      padding: 8px 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      outline: none;
+    }
+    select:focus, input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      background: #0f172a;
+      padding: 4px;
+      border-radius: 11px;
+      border: 1px solid #334155;
+    }
+    .tab-btn {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      padding: 8px 6px;
+      border-radius: 8px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.4);
+    }
+
+    /* Visor de Cámara con Guía Fiducial OMR */
+    .camera-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      max-height: 410px;
+      background: #020617;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    video#camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+    canvas#preview-canvas {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+    .camera-placeholder {
+      text-align: center;
+      padding: 20px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.45;
+      z-index: 2;
+    }
+
+    /* Marco Guía para encuadrar la Tarjeta OMR */
+    .omr-guide-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .omr-guide-rect {
+      width: 54%;
+      height: 88%;
+      border: 2px dashed rgba(16, 185, 129, 0.85);
+      border-radius: 8px;
+      position: relative;
+      box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.42);
+    }
+    .guide-corner {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border: 3px solid #10b981;
+      background: rgba(16, 185, 129, 0.25);
+    }
+    .guide-corner.tl { top: -2px; left: -2px; }
+    .guide-corner.tr { top: -2px; right: -2px; }
+    .guide-corner.bl { bottom: -2px; left: -2px; }
+    .guide-corner.br { bottom: -2px; right: -2px; }
+    .guide-label {
+      position: absolute;
+      top: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(16, 185, 129, 0.92);
+      color: #022c22;
+      font-size: 0.62rem;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 99px;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .btn {
+      flex: 1;
+      min-width: 115px;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 10px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.1s, opacity 0.15s;
+      text-align: center;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; }
+    .btn-emerald { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+    .btn-amber { background: linear-gradient(135deg, #f59e0b, #d97706); color: #0f172a; }
+    .btn-slate { background: #334155; color: #f8fafc; }
+
+    /* Tarjeta de Resultado Instantáneo */
+    .result-banner {
+      border-radius: 12px;
+      padding: 12px;
+      border: 2px solid var(--emerald);
+      background: rgba(16, 185, 129, 0.12);
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .result-banner.visible { display: flex; }
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .result-student {
+      font-size: 0.95rem;
+      font-weight: 900;
+      color: #ffffff;
+    }
+    .result-score-badge {
+      background: var(--emerald);
+      color: #022c22;
+      font-size: 1.05rem;
+      font-weight: 900;
+      padding: 4px 11px;
+      border-radius: 9px;
+      white-space: nowrap;
+    }
+    .result-meta {
+      font-size: 0.74rem;
+      color: #cbd5e1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .ans-pills {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .ans-pill {
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 3px 4px;
+      border-radius: 5px;
+      text-align: center;
+      background: #0f172a;
+      border: 1px solid #334155;
+    }
+    .ans-pill.ok { border-color: #10b981; color: #6ee7b7; background: rgba(16,185,129,0.15); }
+    .ans-pill.err { border-color: #f43f5e; color: #fda4af; background: rgba(244,63,94,0.15); }
+
+    /* Tabla de Historial Escaneado */
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 290px;
+      overflow-y: auto;
+    }
+    .history-item {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.76rem;
+    }
+    .history-item .num {
+      background: #312e81;
+      color: #c7d2fe;
+      font-weight: 900;
+      padding: 3px 7px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+    }
+    .history-item .name {
+      font-weight: 700;
+      color: #f1f5f9;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .history-item .pts {
+      font-weight: 900;
+      color: #34d399;
+      white-space: nowrap;
+    }
+    .sync-tag {
+      font-size: 0.62rem;
+      padding: 2px 6px;
+      border-radius: 99px;
+      font-weight: 800;
+    }
+    .sync-tag.done { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+    .sync-tag.wait { background: rgba(245,158,11,0.2); color: #fcd34d; }
+
+    /* Editor de Claves */
+    .keys-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .key-cell {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 7px;
+      padding: 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .key-cell span {
+      font-size: 0.64rem;
+      font-weight: 800;
+      color: var(--muted);
+    }
+    .key-cell select {
+      padding: 3px 4px;
+      font-size: 0.75rem;
+      text-align: center;
+      font-weight: 900;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #065f46;
+      color: #ecfdf5;
+      border: 1px solid #10b981;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.45);
+      z-index: 100;
+      display: none;
+      white-space: nowrap;
+      max-width: 94vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .toast.show { display: block; }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-title">
+      <span style="font-size:1.35rem;">📷</span>
+      <div>
+        <h1>LECTOR ÓPTICO OMR — REGISTRO PEDAGÓGICO</h1>
+        <p id="subtitle-course">Cargando cursos y nómina...</p>
+      </div>
+    </div>
+    <div id="conn-badge" class="conn-pill cloud">☁️ Conectando...</div>
+  </header>
+
+  <main class="container">
+    <!-- Pestañas principales -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('scan')" id="tab-btn-scan">📷 Escanear</button>
+      <button class="tab-btn" onclick="switchTab('keys')" id="tab-btn-keys">🔑 Evaluación / Claves</button>
+      <button class="tab-btn" onclick="switchTab('history')" id="tab-btn-history">📊 Calificados (<span id="count-badge">0</span>)</button>
+    </div>
+
+    <!-- PANEL CONFIGURACIÓN RÁPIDA DE DESTINO -->
+    <section class="panel">
+      <div class="panel-title">
+        <span>🎯 Destino Automático en el Registro Pedagógico</span>
+        <button onclick="loadPortalContext()" style="background:none;border:none;color:#818cf8;font-size:0.7rem;font-weight:800;cursor:pointer;">🔄 Actualizar</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Curso / Grado</label>
+          <select id="sel-curso" onchange="onCourseChange()"></select>
+        </div>
+        <div class="form-group">
+          <label>Trimestre</label>
+          <select id="sel-trimestre" onchange="onTrimesterChange()">
+            <option value="1">1º Trimestre</option>
+            <option value="2">2º Trimestre</option>
+            <option value="3">3º Trimestre</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Casilla Destino (Sobre 45 pts)</label>
+          <select id="sel-campo" onchange="onDestinationChange()">
+            <option value="saber_1">SABER 1 (Casilla 1)</option>
+            <option value="saber_2">SABER 2 (Casilla 2)</option>
+            <option value="saber_3">SABER 3 (Casilla 3)</option>
+            <option value="saber_4">SABER 4 (Casilla 4)</option>
+            <option value="saber_5">SABER 5 (Casilla 5)</option>
+            <option value="saber_6">SABER 6 (Casilla 6)</option>
+            <option value="saber_7">SABER 7 (Casilla 7)</option>
+            <option value="saber_8">SABER 8 (Casilla 8)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Evaluación / Solucionario</label>
+          <select id="sel-eval" onchange="onEvalSelectChange()"></select>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 1: ESCÁNER ÓPTICO Y REGISTRO AUTOMÁTICO -->
+    <section id="view-scan" class="panel" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="panel-title">
+        <span>⚡ Cámara OMR (Reconocimiento por N° de Lista)</span>
+        <label style="display:flex;align-items:center;gap:4px;font-size:0.68rem;color:#6ee7b7;cursor:pointer;">
+          <input type="checkbox" id="chk-auto-save" checked /> Auto-Guardar
+        </label>
+      </div>
+
+      <!-- Selector rápido de variante por si el estudiante olvidó marcar Col 1 / Col 2 -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;background:#0f172a;padding:6px 10px;border-radius:9px;border:1px solid #334155;">
+        <span style="font-size:0.7rem;font-weight:700;color:#94a3b8;">Variante OMR:</span>
+        <div style="display:flex;gap:6px;">
+          <label style="font-size:0.72rem;font-weight:800;display:flex;align-items:center;gap:3px;">
+            <input type="radio" name="rad-var" value="AUTO" checked /> Auto (Leer burbuja)
+          </label>
+          <label style="font-size:0.72rem;font-weight:800;display:flex;align-items:center;gap:3px;color:#93c5fd;">
+            <input type="radio" name="rad-var" value="COL1" /> Fijar Col. 1
+          </label>
+          <label style="font-size:0.72rem;font-weight:800;display:flex;align-items:center;gap:3px;color:#fcd34d;">
+            <input type="radio" name="rad-var" value="COL2" /> Fijar Col. 2
+          </label>
+        </div>
+      </div>
+
+      <!-- Visor de Cámara / Imagen -->
+      <div class="camera-box" id="camera-container">
+        <video id="camera-video" playsinline muted></video>
+        <canvas id="preview-canvas"></canvas>
+        <div class="camera-placeholder" id="camera-placeholder">
+          <div style="font-size:2.2rem;margin-bottom:6px;">📸</div>
+          <strong>Toca "📸 Tomar Foto con Cámara" para escanear</strong><br/>
+          Funciona tanto en <b>Wi-Fi Local</b> como en <b>Nube (Render)</b>.<br/>
+          Encuadra las 4 esquinas negras de la <b>Tarjeta Óptica OMR</b>.
+        </div>
+        <div class="omr-guide-overlay">
+          <div class="omr-guide-rect">
+            <span class="guide-label">Encuadrar Tarjeta OMR Aquí</span>
+            <div class="guide-corner tl"></div>
+            <div class="guide-corner tr"></div>
+            <div class="guide-corner bl"></div>
+            <div class="guide-corner br"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inputs ocultos: 1) Cámara nativa directa (funciona en HTTP Wi-Fi y HTTPS) y 2) Galería -->
+      <input type="file" id="native-camera-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotosSelected(event)" />
+      <input type="file" id="gallery-file-input" accept="image/*" multiple style="display:none;" onchange="handlePhotosSelected(event)" />
+
+      <div class="btn-row">
+        <!-- Botón principal universal: abre la cámara trasera nativa en Android/iOS tanto en HTTP (Wi-Fi) como HTTPS -->
+        <button class="btn btn-emerald" onclick="document.getElementById('native-camera-input').click()">
+          📸 Tomar Foto con Cámara
+        </button>
+        <button class="btn btn-primary" id="btn-toggle-cam" onclick="toggleCamera()">
+          🎥 Cámara en Vivo
+        </button>
+        <button class="btn btn-emerald" id="btn-capture" onclick="captureAndGradeFrame()" style="display:none;">
+          ⚡ Capturar Ahora
+        </button>
+        <button class="btn btn-amber" onclick="document.getElementById('gallery-file-input').click()">
+          🖼️ Galería / Lote
+        </button>
+      </div>
+
+      <!-- Banner de Resultado Instantáneo -->
+      <div class="result-banner" id="result-banner">
+        <div class="result-header">
+          <div>
+            <div class="result-student" id="res-student-name">#01 ESTUDIANTE</div>
+            <div class="result-meta" id="res-meta">Columna 1 • 13/15 aciertos • Guardado en SABER 1</div>
+          </div>
+          <div class="result-score-badge" id="res-score">39 / 45</div>
+        </div>
+        <div class="ans-pills" id="res-pills"></div>
+
+        <!-- Ajuste rápido o re-asignación de N° de Lista si una burbuja estuvo borrosa -->
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.12);">
+          <select id="sel-override-student" style="flex:1;font-size:0.74rem;padding:6px;"></select>
+          <input type="number" id="inp-override-score" min="0" max="45" style="width:68px;padding:6px;text-align:center;" placeholder="Pts" />
+          <button class="btn btn-emerald" style="flex:0 0 auto;min-width:auto;padding:7px 12px;font-size:0.74rem;" onclick="confirmManualOverride()">
+            💾 Guardar / Corregir
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: GESTIÓN DE EVALUACIÓN Y CLAVES DE RESPUESTA -->
+    <section id="view-keys" class="panel" style="display:none;flex-direction:column;gap:10px;">
+      <div class="panel-title">
+        <span>🔑 Configurar Evaluación y Solucionario (15 Preguntas)</span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Título de la Evaluación (Aparecerá en la cabecera vertical de tu Registro)</label>
+          <input type="text" id="eval-title" value="Operaciones con Números Decimales" />
+        </div>
+      </div>
+
+      <div style="margin-top:4px;">
+        <label style="font-size:0.7rem;font-weight:800;color:#93c5fd;">SOLUCIONARIO COLUMNA 1 (Preguntas 01 al 15):</label>
+        <div class="keys-grid" id="keys-col1"></div>
+      </div>
+
+      <div style="margin-top:6px;">
+        <label style="font-size:0.7rem;font-weight:800;color:#fcd34d;">SOLUCIONARIO COLUMNA 2 (Preguntas 01 al 15):</label>
+        <div class="keys-grid" id="keys-col2"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-emerald" onclick="saveEvaluationConfig()">💾 Guardar Evaluación y Claves en Nube / PC</button>
+      </div>
+    </section>
+
+    <!-- TAB 3: HISTORIAL DE ESTUDIANTES CALIFICADOS EN ESTA SESIÓN -->
+    <section id="view-history" class="panel" style="display:none;flex-direction:column;gap:10px;">
+      <div class="panel-title">
+        <span>📊 Calificaciones Registradas Automáticamente</span>
+        <span id="sync-summary-text" style="font-size:0.68rem;color:#6ee7b7;">Sincronizado</span>
+      </div>
+      <div class="history-list" id="history-container"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast">✅ Calificación registrada automáticamente</div>
+
+  <script>
+    // =========================================================================
+    // CONFIGURACIÓN SUPABASE CLOUD + API LOCAL HÍBRIDA
+    // =========================================================================
+    const SUPABASE_URL = "https://nqzcgagybjnctfaeeiqd.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_3b9uuluJAKe2wd3jQEDnlg_MhT81j__";
+    const DEFAULT_PIN = localStorage.getItem('omr_pin') || "2026";
+    const IS_CLOUD_HOST = window.location.hostname.endsWith('.onrender.com') || window.location.protocol === 'https:';
+
+    const DEFAULT_KEYS = {
+      COL1: ['B', 'D', 'A', 'C', 'A', 'D', 'B', 'C', 'A', 'D', 'B', 'C', 'A', 'B', 'D'],
+      COL2: ['C', 'A', 'D', 'B', 'D', 'A', 'C', 'B', 'D', 'C', 'A', 'B', 'D', 'C', 'A']
+    };
+
+    const state = {
+      mode: IS_CLOUD_HOST ? 'SUPABASE_CLOUD' : 'LOCAL_API',
+      cursos: [],
+      estudiantes: [],
+      evaluaciones: [],
+      calificaciones: [],
+      activeConfigId: null,
+      activeTrimestre: 1,
+      activeCampo: 'saber_1',
+      activeEvalId: null,
+      keys: JSON.parse(JSON.stringify(DEFAULT_KEYS)),
+      cameraStream: null,
+      lastScanResult: null
+    };
+
+    function playBeep(freq = 880, duration = 130) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.value = 0.18;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        setTimeout(() => { osc.stop(); ctx.close(); }, duration);
+      } catch {}
+    }
+
+    function showToast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.background = isError ? '#881337' : '#065f46';
+      t.style.borderColor = isError ? '#f43f5e' : '#10b981';
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3400);
+    }
+
+    function switchTab(tab) {
+      ['scan', 'keys', 'history'].forEach(k => {
+        document.getElementById(`view-${k}`).style.display = (k === tab) ? 'flex' : 'none';
+        document.getElementById(`tab-btn-${k}`).classList.toggle('active', k === tab);
+      });
+    }
+
+    function renderKeyEditors() {
+      ['COL1', 'COL2'].forEach(colKey => {
+        const container = document.getElementById(colKey === 'COL1' ? 'keys-col1' : 'keys-col2');
+        container.innerHTML = '';
+        for (let i = 0; i < 15; i++) {
+          const cur = state.keys[colKey][i] || 'A';
+          const cell = document.createElement('div');
+          cell.className = 'key-cell';
+          cell.innerHTML = `
+            <span>P.${i + 1 < 10 ? '0' + (i + 1) : i + 1}</span>
+            <select onchange="updateSingleKey('${colKey}', ${i}, this.value)">
+              ${['A', 'B', 'C', 'D'].map(L => `<option value="${L}" ${L === cur ? 'selected' : ''}>${L}</option>`).join('')}
+            </select>
+          `;
+          container.appendChild(cell);
+        }
+      });
+    }
+
+    function updateSingleKey(colKey, idx, val) {
+      state.keys[colKey][idx] = val;
+    }
+
+    // =========================================================================
+    // 1. CARGAR CURSOS, NÓMINA Y EVALUACIONES (SUPABASE CLOUD Y/O API LOCAL)
+    // =========================================================================
+    async function fetchFromSupabaseRpc() {
+      const resSupa = await fetch(`${SUPABASE_URL}/rest/v1/rpc/omr_portal_contexto`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ p_pin: DEFAULT_PIN }),
+        signal: AbortSignal.timeout(12000)
+      });
+      if (!resSupa.ok) throw new Error('Supabase HTTP ' + resSupa.status);
+      const data = await resSupa.json();
+      if (!data || !data.ok) throw new Error(data?.error || 'Respuesta inválida de Supabase');
+      return data;
+    }
+
+    async function fetchFromLocalApi() {
+      const resLocal = await fetch('/api/omr/contexto', { signal: AbortSignal.timeout(3500) });
+      if (!resLocal.ok) throw new Error('Local API HTTP ' + resLocal.status);
+      const data = await resLocal.json();
+      if (!data || !data.ok || !Array.isArray(data.cursos) || data.cursos.length === 0) {
+        throw new Error('Local API sin cursos');
+      }
+      return data;
+    }
+
+    async function loadPortalContext() {
+      const badge = document.getElementById('conn-badge');
+      badge.textContent = '🔄 Sincronizando...';
+
+      // Si estamos en Render (.onrender.com), priorizar Supabase Cloud para sincronizar con la PC del docente
+      if (IS_CLOUD_HOST) {
+        try {
+          const data = await fetchFromSupabaseRpc();
+          state.mode = 'SUPABASE_CLOUD';
+          badge.className = 'conn-pill cloud';
+          badge.textContent = '☁️ Supabase Cloud Activo';
+          applyContextData(data);
+          return;
+        } catch (err) {
+          console.warn('Fallback a API local:', err);
+        }
+      }
+
+      // En Wi-Fi Local, intentar primero conexión directa al servidor de la laptop
+      try {
+        const data = await fetchFromLocalApi();
+        state.mode = 'LOCAL_API';
+        badge.className = 'conn-pill online';
+        badge.textContent = '🟢 Directo al Registro';
+        applyContextData(data);
+        return;
+      } catch {}
+
+      // Fallback universal a Supabase Cloud
+      try {
+        const data = await fetchFromSupabaseRpc();
+        state.mode = 'SUPABASE_CLOUD';
+        badge.className = 'conn-pill cloud';
+        badge.textContent = '☁️ Supabase Cloud Activo';
+        applyContextData(data);
+        return;
+      } catch (err) {
+        console.warn('Error conectando:', err);
+      }
+
+      badge.className = 'conn-pill offline';
+      badge.textContent = '⚠️ Sin Conexión';
+      document.getElementById('subtitle-course').textContent = 'Verifica tu conexión a Internet o Wi-Fi.';
+    }
+
+    function applyContextData(data) {
+      state.cursos = data.cursos || [];
+      state.estudiantes = data.estudiantes || [];
+      state.evaluaciones = data.evaluaciones || [];
+      state.calificaciones = data.calificaciones || [];
+
+      const selCurso = document.getElementById('sel-curso');
+      selCurso.innerHTML = '';
+
+      let defaultConfigId = state.activeConfigId;
+      if (!defaultConfigId && state.cursos.length > 0) {
+        const found1roMat = state.cursos.find(c =>
+          String(c.curso).toUpperCase().includes('1RO') && String(c.area).toUpperCase().includes('MAT')
+        );
+        defaultConfigId = found1roMat ? found1roMat.config_id : state.cursos[0].config_id;
+      }
+
+      state.cursos.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.config_id;
+        opt.textContent = `${c.curso} — ${c.area}`;
+        if (Number(c.config_id) === Number(defaultConfigId)) opt.selected = true;
+        selCurso.appendChild(opt);
+      });
+
+      state.activeConfigId = Number(selCurso.value) || null;
+      onCourseChange();
+    }
+
+    function onCourseChange() {
+      const selCurso = document.getElementById('sel-curso');
+      state.activeConfigId = Number(selCurso.value);
+      const courseObj = state.cursos.find(c => Number(c.config_id) === state.activeConfigId);
+      const roster = getCourseRoster();
+
+      document.getElementById('subtitle-course').textContent = courseObj
+        ? `${courseObj.curso} (${courseObj.area}) • ${roster.length} estudiantes en lista`
+        : 'Sin curso seleccionado';
+
+      const selOverride = document.getElementById('sel-override-student');
+      selOverride.innerHTML = '';
+      roster.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.numero_lista;
+        const numStr = s.numero_lista < 10 ? '0' + s.numero_lista : s.numero_lista;
+        opt.textContent = `#${numStr} — ${s.apellidos} ${s.nombres}`;
+        selOverride.appendChild(opt);
+      });
+
+      populateEvaluationsDropdown();
+      renderHistory();
+    }
+
+    function onTrimesterChange() {
+      state.activeTrimestre = Number(document.getElementById('sel-trimestre').value) || 1;
+      populateEvaluationsDropdown();
+    }
+
+    function onDestinationChange() {
+      state.activeCampo = document.getElementById('sel-campo').value || 'saber_1';
+    }
+
+    function getCourseRoster() {
+      return state.estudiantes
+        .filter(e => Number(e.config_id) === Number(state.activeConfigId))
+        .sort((a, b) => Number(a.numero_lista) - Number(b.numero_lista));
+    }
+
+    function populateEvaluationsDropdown() {
+      const selEval = document.getElementById('sel-eval');
+      selEval.innerHTML = '';
+
+      const courseEvals = state.evaluaciones.filter(
+        ev => Number(ev.config_id) === Number(state.activeConfigId)
+      );
+
+      if (courseEvals.length === 0) {
+        const defaultId = `eval_decimales_c${state.activeConfigId || 1}`;
+        const opt = document.createElement('option');
+        opt.value = defaultId;
+        opt.textContent = 'Operaciones con Números Decimales (Col 1 y 2)';
+        selEval.appendChild(opt);
+        state.activeEvalId = defaultId;
+        state.keys = JSON.parse(JSON.stringify(DEFAULT_KEYS));
+      } else {
+        courseEvals.forEach(ev => {
+          const opt = document.createElement('option');
+          opt.value = ev.id;
+          opt.textContent = `${ev.titulo} (${(ev.campo_destino || 'saber_1').toUpperCase()})`;
+          selEval.appendChild(opt);
+        });
+        state.activeEvalId = courseEvals[0].id;
+        onEvalSelectChange();
+      }
+      renderKeyEditors();
+    }
+
+    function onEvalSelectChange() {
+      const evalId = document.getElementById('sel-eval').value;
+      state.activeEvalId = evalId;
+      const found = state.evaluaciones.find(ev => ev.id === evalId);
+      if (found) {
+        document.getElementById('eval-title').value = found.titulo || 'Evaluación OMR';
+        if (found.campo_destino) {
+          document.getElementById('sel-campo').value = found.campo_destino;
+          state.activeCampo = found.campo_destino;
+        }
+        const cj = typeof found.claves_json === 'string' ? JSON.parse(found.claves_json) : found.claves_json;
+        if (cj && Array.isArray(cj.COL1) && Array.isArray(cj.COL2)) {
+          state.keys = { COL1: [...cj.COL1], COL2: [...cj.COL2] };
+        }
+      }
+      renderKeyEditors();
+    }
+
+    async function saveEvaluationConfig() {
+      const titulo = document.getElementById('eval-title').value.trim() || 'Evaluación OMR';
+      const evalId = state.activeEvalId || `eval_${state.activeConfigId}_${state.activeTrimestre}_${state.activeCampo}`;
+      const payload = {
+        pin: DEFAULT_PIN,
+        id: evalId,
+        config_id: state.activeConfigId,
+        trimestre: state.activeTrimestre,
+        campo_destino: state.activeCampo,
+        titulo,
+        fecha: new Date().toISOString().split('T')[0],
+        puntaje_maximo: 45,
+        total_preguntas: 15,
+        claves_json: state.keys
+      };
+
+      try {
+        if (state.mode === 'LOCAL_API') {
+          const res = await fetch('/api/omr/evaluaciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            showToast('✅ Solucionario guardado en el Registro y Nube');
+            await loadPortalContext();
+            return;
+          }
+        }
+
+        const resSupa = await fetch(`${SUPABASE_URL}/rest/v1/rpc/omr_guardar_evaluacion`, {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            p_pin: DEFAULT_PIN,
+            p_id: payload.id,
+            p_config_id: payload.config_id,
+            p_trimestre: payload.trimestre,
+            p_campo_destino: payload.campo_destino,
+            p_titulo: payload.titulo,
+            p_fecha: payload.fecha,
+            p_puntaje_maximo: 45,
+            p_total_preguntas: 15,
+            p_claves_json: payload.claves_json
+          })
+        });
+        const data = await resSupa.json();
+        if (data && data.ok) {
+          showToast('✅ Solucionario guardado en Supabase Cloud');
+          await loadPortalContext();
+        } else {
+          showToast('⚠️ ' + (data?.error || 'Error al guardar'), true);
+        }
+      } catch (e) {
+        showToast('⚠️ Error de red al guardar evaluación', true);
+      }
+    }
+
+    // =========================================================================
+    // 2. CÁMARA EN VIVO (HTTPS) + CÁMARA NATIVA AUTOMÁTICA (HTTP WI-FI)
+    // =========================================================================
+    async function toggleCamera() {
+      const video = document.getElementById('camera-video');
+      const placeholder = document.getElementById('camera-placeholder');
+      const canvas = document.getElementById('preview-canvas');
+      const btnCam = document.getElementById('btn-toggle-cam');
+      const btnCap = document.getElementById('btn-capture');
+
+      if (state.cameraStream) {
+        state.cameraStream.getTracks().forEach(t => t.stop());
+        state.cameraStream = null;
+        video.style.display = 'none';
+        btnCap.style.display = 'none';
+        placeholder.style.display = 'block';
+        btnCam.textContent = '🎥 Cámara en Vivo';
+        return;
+      }
+
+      // Si estamos en HTTP sin cifrar (Wi-Fi Local), Chrome Android bloquea navigator.mediaDevices:
+      // abrimos automáticamente la cámara trasera nativa del teléfono sin mostrar error.
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('📸 Abriendo cámara nativa del celular...');
+        document.getElementById('native-camera-input').click();
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 960 }
+          },
+          audio: false
+        });
+        state.cameraStream = stream;
+        video.srcObject = stream;
+        await video.play();
+        placeholder.style.display = 'none';
+        canvas.style.display = 'none';
+        video.style.display = 'block';
+        btnCap.style.display = 'inline-flex';
+        btnCam.textContent = '⏹️ Detener';
+      } catch (err) {
+        // Fallback inmediato a la cámara nativa del teléfono
+        document.getElementById('native-camera-input').click();
+      }
+    }
+
+    function captureAndGradeFrame() {
+      const video = document.getElementById('camera-video');
+      if (!video || !state.cameraStream) return;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = video.videoWidth || 900;
+      tempCanvas.height = video.videoHeight || 1200;
+      const ctx = tempCanvas.getContext('2d');
+
+      const cropW = tempCanvas.width * 0.58;
+      const cropH = tempCanvas.height * 0.90;
+      const cropX = (tempCanvas.width - cropW) / 2;
+      const cropY = (tempCanvas.height - cropH) / 2;
+
+      const normCanvas = document.getElementById('preview-canvas');
+      normCanvas.width = 360;
+      normCanvas.height = 720;
+      const nCtx = normCanvas.getContext('2d');
+      nCtx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, 360, 720);
+
+      video.style.display = 'none';
+      normCanvas.style.display = 'block';
+      processNormalizedOmrCanvas(normCanvas);
+
+      setTimeout(() => {
+        if (state.cameraStream) {
+          normCanvas.style.display = 'none';
+          video.style.display = 'block';
+        }
+      }, 1800);
+    }
+
+    // Detector de las 4 marcas fiduciales esquinadas para recortar y enderezar fotos tomadas con la cámara nativa
+    function extractOmrCardToNormalizedCanvas(img, normCanvas) {
+      const maxDim = 1200;
+      let w = img.width, h = img.height;
+      if (Math.max(w, h) > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const srcCanvas = document.createElement('canvas');
+      srcCanvas.width = w;
+      srcCanvas.height = h;
+      const sCtx = srcCanvas.getContext('2d');
+      sCtx.drawImage(img, 0, 0, w, h);
+
+      normCanvas.width = 360;
+      normCanvas.height = 720;
+      const nCtx = normCanvas.getContext('2d');
+
+      // Si el docente fotografió toda la hoja de examen, la columna OMR está en el tercio derecho;
+      // si fotografió directamente la Tarjeta Óptica OMR, ocupa casi todo el ancho.
+      const aspect = w / h;
+      if (aspect > 0.66) {
+        const sx = w * 0.695;
+        const sy = h * 0.075;
+        const sw = w * 0.285;
+        const sh = h * 0.885;
+        nCtx.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, 360, 720);
+      } else {
+        // Recorte suave de márgenes exteriores si encuadró solo la columna OMR
+        const padX = w * 0.04;
+        const padY = h * 0.04;
+        nCtx.drawImage(srcCanvas, padX, padY, w - padX * 2, h - padY * 2, 0, 0, 360, 720);
+      }
+    }
+
+    async function handlePhotosSelected(ev) {
+      const files = Array.from(ev.target.files || []);
+      if (files.length === 0) return;
+
+      const placeholder = document.getElementById('camera-placeholder');
+      const normCanvas = document.getElementById('preview-canvas');
+      placeholder.style.display = 'none';
+      normCanvas.style.display = 'block';
+
+      for (const file of files) {
+        await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = async () => {
+            extractOmrCardToNormalizedCanvas(img, normCanvas);
+            await processNormalizedOmrCanvas(normCanvas);
+            setTimeout(resolve, 350);
+          };
+          img.src = URL.createObjectURL(file);
+        });
+      }
+      ev.target.value = '';
+    }
+
+    function sampleDarkness(imgData, cx, cy, r = 8) {
+      const { data, width, height } = imgData;
+      let sumLum = 0;
+      let count = 0;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dy * dy > r * r) continue;
+          const x = Math.round(cx + dx);
+          const y = Math.round(cy + dy);
+          if (x < 0 || x >= width || y < 0 || y >= height) continue;
+          const idx = (y * width + x) * 4;
+          const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+          sumLum += lum;
+          count++;
+        }
+      }
+      if (count === 0) return 0;
+      return 255 - (sumLum / count);
+    }
+
+    async function processNormalizedOmrCanvas(canvas) {
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      // 1. Detectar Variante (Columna 1 o Columna 2)
+      const varMode = document.querySelector('input[name="rad-var"]:checked')?.value || 'AUTO';
+      let detectedCol = 'COL1';
+      if (varMode !== 'AUTO') {
+        detectedCol = varMode;
+      } else {
+        const dCol1 = sampleDarkness(imgData, 130, 56, 9);
+        const dCol2 = sampleDarkness(imgData, 285, 56, 9);
+        detectedCol = dCol2 > dCol1 + 8 ? 'COL2' : 'COL1';
+      }
+
+      // 2. Detectar Decenas (0..4) y Unidades (0..4 y 5..9) del N° de Lista
+      const xCols5 = [88, 138, 188, 238, 288];
+      const yTens = 118;
+      const yUni1 = 144;
+      const yUni2 = 170;
+
+      let bestTen = 0, maxTenScore = -1;
+      for (let d = 0; d < 5; d++) {
+        const s = sampleDarkness(imgData, xCols5[d], yTens, 8);
+        if (s > maxTenScore) { maxTenScore = s; bestTen = d; }
+      }
+
+      let bestUni = 1, maxUniScore = -1;
+      for (let u = 0; u < 5; u++) {
+        const s1 = sampleDarkness(imgData, xCols5[u], yUni1, 8);
+        if (s1 > maxUniScore) { maxUniScore = s1; bestUni = u; }
+        const s2 = sampleDarkness(imgData, xCols5[u], yUni2, 8);
+        if (s2 > maxUniScore) { maxUniScore = s2; bestUni = u + 5; }
+      }
+
+      const roster = getCourseRoster();
+      let listNumber = bestTen * 10 + bestUni;
+      if (listNumber < 1 || (roster.length > 0 && listNumber > roster.length)) {
+        listNumber = Math.max(1, Math.min(roster.length || 1, listNumber || 1));
+      }
+
+      // 3. Leer las 15 filas de respuestas (A, B, C, D)
+      const xAns = [102, 165, 228, 291];
+      const letters = ['A', 'B', 'C', 'D'];
+      const yStart = 232;
+      const yStep = 31.2;
+
+      const keyArr = state.keys[detectedCol] || DEFAULT_KEYS.COL1;
+      const studentAnswers = [];
+      let hits = 0;
+
+      for (let q = 0; q < 15; q++) {
+        const y = Math.round(yStart + q * yStep);
+        let bestL = 'A', bestVal = -1;
+        letters.forEach((L, idx) => {
+          const val = sampleDarkness(imgData, xAns[idx], y, 8);
+          if (val > bestVal) {
+            bestVal = val;
+            bestL = L;
+          }
+          ctx.beginPath();
+          ctx.arc(xAns[idx], y, 9, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+
+        const correctL = keyArr[q] || 'A';
+        const isCorrect = bestL === correctL;
+        if (isCorrect) hits++;
+
+        const chosenIdx = letters.indexOf(bestL);
+        ctx.beginPath();
+        ctx.arc(xAns[chosenIdx], y, 10, 0, Math.PI * 2);
+        ctx.strokeStyle = isCorrect ? '#10b981' : '#f43f5e';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        studentAnswers.push({
+          q: q + 1,
+          marcada: bestL,
+          correcta: correctL,
+          ok: isCorrect
+        });
+      }
+
+      const puntaje = hits * 3;
+
+      const scanResult = {
+        numero_lista: listNumber,
+        variante: detectedCol,
+        aciertos: hits,
+        total_preguntas: 15,
+        puntaje,
+        respuestas_json: studentAnswers
+      };
+
+      state.lastScanResult = scanResult;
+      displayScanResultUI(scanResult);
+
+      if (document.getElementById('chk-auto-save').checked) {
+        await submitGradeToCloudOrLocal(scanResult);
+      }
+    }
+
+    function displayScanResultUI(scanResult) {
+      const roster = getCourseRoster();
+      const student = roster.find(s => Number(s.numero_lista) === Number(scanResult.numero_lista));
+      const numStr = scanResult.numero_lista < 10 ? '0' + scanResult.numero_lista : scanResult.numero_lista;
+
+      const banner = document.getElementById('result-banner');
+      banner.classList.add('visible');
+
+      document.getElementById('res-student-name').textContent = student
+        ? `#${numStr} ${student.apellidos} ${student.nombres}`
+        : `N° de Lista #${numStr}`;
+
+      document.getElementById('res-score').textContent = `${scanResult.puntaje} / 45`;
+      document.getElementById('res-meta').textContent =
+        `${scanResult.variante === 'COL2' ? 'Columna 2' : 'Columna 1'} • ${scanResult.aciertos}/15 aciertos • Destino: ${state.activeCampo.toUpperCase()}`;
+
+      document.getElementById('sel-override-student').value = scanResult.numero_lista;
+      document.getElementById('inp-override-score').value = scanResult.puntaje;
+
+      const pillsBox = document.getElementById('res-pills');
+      pillsBox.innerHTML = '';
+      (scanResult.respuestas_json || []).forEach(r => {
+        const d = document.createElement('div');
+        d.className = `ans-pill ${r.ok ? 'ok' : 'err'}`;
+        d.textContent = `${r.q}:${r.marcada}${r.ok ? '✓' : '✗(' + r.correcta + ')'}`;
+        pillsBox.appendChild(d);
+      });
+    }
+
+    async function confirmManualOverride() {
+      const newNum = Number(document.getElementById('sel-override-student').value) || 1;
+      const newScore = Math.max(0, Math.min(45, Number(document.getElementById('inp-override-score').value) || 0));
+      const scanResult = state.lastScanResult || {
+        numero_lista: newNum,
+        variante: 'COL1',
+        aciertos: Math.round(newScore / 3),
+        total_preguntas: 15,
+        puntaje: newScore,
+        respuestas_json: []
+      };
+      scanResult.numero_lista = newNum;
+      scanResult.puntaje = newScore;
+      scanResult.aciertos = Math.round(newScore / 3);
+      displayScanResultUI(scanResult);
+      await submitGradeToCloudOrLocal(scanResult);
+    }
+
+    // =========================================================================
+    // 3. ENVÍO AUTOMÁTICO DE LA CALIFICACIÓN A SUPABASE Y REGISTRO PEDAGÓGICO
+    // =========================================================================
+    async function submitGradeToCloudOrLocal(scanResult) {
+      if (!state.activeConfigId) {
+        showToast('⚠️ Selecciona primero un curso', true);
+        return;
+      }
+
+      const tituloEval = document.getElementById('eval-title').value.trim() || 'Operaciones con Números Decimales';
+      const evalId = state.activeEvalId || `eval_decimales_c${state.activeConfigId}`;
+
+      const payload = {
+        pin: DEFAULT_PIN,
+        evaluacion_id: evalId,
+        config_id: state.activeConfigId,
+        trimestre: state.activeTrimestre,
+        campo_destino: state.activeCampo,
+        titulo_evaluacion: tituloEval,
+        numero_lista: scanResult.numero_lista,
+        variante: scanResult.variante,
+        aciertos: scanResult.aciertos,
+        total_preguntas: scanResult.total_preguntas,
+        puntaje: scanResult.puntaje,
+        respuestas_json: scanResult.respuestas_json
+      };
+
+      try {
+        if (state.mode === 'LOCAL_API') {
+          const res = await fetch('/api/omr/registrar-calificacion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (res.ok && data.ok) {
+            playBeep(980, 150);
+            showToast(`✅ #${data.applied.numeroLista} ${data.applied.nombreCompleto}: ${data.applied.puntaje}/45 pts → ${state.activeCampo.toUpperCase()}`);
+            unshiftHistoryItem({
+              numero_lista: data.applied.numeroLista,
+              nombre: data.applied.nombreCompleto,
+              puntaje: data.applied.puntaje,
+              variante: data.applied.variante,
+              sincronizado_pc: true
+            });
+            return;
+          }
+        }
+
+        // Envío vía Supabase Cloud RPC (omr_registrar_calificacion)
+        const resSupa = await fetch(`${SUPABASE_URL}/rest/v1/rpc/omr_registrar_calificacion`, {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            p_pin: DEFAULT_PIN,
+            p_evaluacion_id: payload.evaluacion_id,
+            p_config_id: payload.config_id,
+            p_trimestre: payload.trimestre,
+            p_campo_destino: payload.campo_destino,
+            p_titulo_evaluacion: payload.titulo_evaluacion,
+            p_numero_lista: payload.numero_lista,
+            p_variante: payload.variante,
+            p_aciertos: payload.aciertos,
+            p_total_preguntas: payload.total_preguntas,
+            p_puntaje: payload.puntaje,
+            p_respuestas_json: payload.respuestas_json
+          })
+        });
+
+        const supaData = await resSupa.json();
+        if (supaData && supaData.ok) {
+          playBeep(980, 150);
+          const est = supaData.estudiante || {};
+          showToast(`☁️ #${est.numero_lista} ${est.nombre_completo}: ${scanResult.puntaje}/45 pts enviado a tu PC`);
+          unshiftHistoryItem({
+            numero_lista: est.numero_lista,
+            nombre: est.nombre_completo,
+            puntaje: scanResult.puntaje,
+            variante: scanResult.variante,
+            sincronizado_pc: false
+          });
+        } else {
+          showToast('⚠️ ' + (supaData?.error || 'No se pudo registrar'), true);
+        }
+      } catch (err) {
+        showToast('⚠️ Error de conexión al registrar nota', true);
+      }
+    }
+
+    function unshiftHistoryItem(item) {
+      state.calificaciones = state.calificaciones.filter(
+        c => !(Number(c.config_id) === Number(state.activeConfigId) && Number(c.numero_lista) === Number(item.numero_lista))
+      );
+      state.calificaciones.unshift({
+        config_id: state.activeConfigId,
+        numero_lista: item.numero_lista,
+        nombre_estudiante: item.nombre,
+        puntaje: item.puntaje,
+        variante: item.variante,
+        sincronizado_pc: item.sincronizado_pc
+      });
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const box = document.getElementById('history-container');
+      const roster = getCourseRoster();
+      const filtered = state.calificaciones.filter(c => Number(c.config_id) === Number(state.activeConfigId));
+
+      document.getElementById('count-badge').textContent = filtered.length;
+      if (filtered.length === 0) {
+        box.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:18px;font-size:0.78rem;">Aún no hay exámenes escaneados en este curso.</div>`;
+        return;
+      }
+
+      box.innerHTML = '';
+      filtered.forEach(c => {
+        const st = roster.find(r => Number(r.numero_lista) === Number(c.numero_lista));
+        const name = c.nombre_estudiante || (st ? `${st.apellidos} ${st.nombres}` : `Estudiante #${c.numero_lista}`);
+        const numStr = c.numero_lista < 10 ? '0' + c.numero_lista : c.numero_lista;
+        const row = document.createElement('div');
+        row.className = 'history-item';
+        row.innerHTML = `
+          <span class="num">#${numStr}</span>
+          <span class="name">${name}</span>
+          <span class="pts">${c.puntaje} / 45 pts</span>
+          <span class="sync-tag ${c.sincronizado_pc ? 'done' : 'wait'}">${c.sincronizado_pc ? '✓ En PC' : '☁️ En Cola'}</span>
+        `;
+        box.appendChild(row);
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderKeyEditors();
+      loadPortalContext();
+    });
+  </script>
+</body>
+</html>
