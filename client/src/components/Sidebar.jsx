@@ -19,6 +19,7 @@ import {
     X
 } from 'lucide-react';
 import SyncModal from './SyncModal';
+import api from '../api';
 
 const Sidebar = ({ onLogout, isOpen = false, onClose, className = '' }) => {
     const location = useLocation();
@@ -35,6 +36,32 @@ const Sidebar = ({ onLogout, isOpen = false, onClose, className = '' }) => {
         if (localStorage.getItem('valoracionLocked') === 'true') {
             document.body.classList.add('valoracion-locked');
         }
+
+        // Auto-verificar cambios en Supabase al volver a la pestaña (Celular o PC) o cada 25 segundos
+        const checkRemoteChanges = async () => {
+            if (document.hidden) return;
+            const activeTag = document.activeElement?.tagName;
+            if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+            try {
+                const res = await api.get('/sync/check-updates');
+                if (res.data?.pulled) {
+                    window.location.reload();
+                }
+            } catch (e) {}
+        };
+
+        const handleVisibility = () => {
+            if (!document.hidden) checkRemoteChanges();
+        };
+        window.addEventListener('focus', checkRemoteChanges);
+        document.addEventListener('visibilitychange', handleVisibility);
+        const intervalId = setInterval(checkRemoteChanges, 25000);
+
+        return () => {
+            window.removeEventListener('focus', checkRemoteChanges);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            clearInterval(intervalId);
+        };
     }, []);
 
     const toggleCompactMode = () => {
@@ -121,12 +148,12 @@ const Sidebar = ({ onLogout, isOpen = false, onClose, className = '' }) => {
                         setShowSyncModal(true);
                         if (onClose) onClose();
                     }}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-purple-900/60 to-indigo-900/60 hover:from-purple-800/80 hover:to-indigo-800/80 text-purple-200 border border-purple-500/30 transition text-sm group shadow-sm"
-                    title="Sincronizar y Respaldar tus datos (Google Drive / Celular)"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-gradient-to-r from-emerald-900/70 to-indigo-900/70 hover:from-emerald-800/90 hover:to-indigo-800/90 text-emerald-200 border border-emerald-500/40 transition text-sm group shadow-sm"
+                    title="Sincronizar con Supabase Cloud Permanente (Celular y PC)"
                 >
                     <div className="flex items-center space-x-2.5">
-                        <Cloud size={18} className="text-purple-400 group-hover:scale-110 transition-transform" />
-                        <span className="font-semibold text-xs tracking-wide">Nube & Respaldo</span>
+                        <Cloud size={18} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-xs tracking-wide">Sincronizar con Supabase</span>
                     </div>
                     <span className="flex h-2 w-2 relative">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

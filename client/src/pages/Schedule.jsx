@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Schedule.css';
+import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
+import { ChevronLeft, ChevronRight, Calendar, CalendarCheck, Settings, Printer } from 'lucide-react';
 import api from '../api';
 import ScheduleConfigModal from '../components/ScheduleConfigModal';
 
@@ -326,30 +329,126 @@ const Schedule = () => {
         }
     };
 
-    const handlePrint = () => {
-        const isLandscape = printOrientation === 'landscape';
+    // Inyectar regla @page en hoja carta según la orientación seleccionada (Horizontal / Vertical)
+    useEffect(() => {
+        const old = document.getElementById('schedule-page-orientation');
+        if (old) old.remove();
+
         const style = document.createElement('style');
-        style.id = 'force-orientation';
+        style.id = 'schedule-page-orientation';
         style.innerHTML = `
             @page {
-                size: ${isLandscape ? 'A4 landscape' : 'A4 portrait'} !important;
-                margin: 0.2in !important;
-            }
-            @media print {
-                html, body {
-                    width: ${isLandscape ? '297mm' : '210mm'} !important;
-                    height: ${isLandscape ? '210mm' : '297mm'} !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    background: white !important;
-                    overflow: visible !important;
-                }
+                size: ${printOrientation === 'landscape' ? 'letter landscape' : 'letter portrait'};
+                margin: 5mm;
             }
         `;
         document.head.appendChild(style);
-        window.print();
-        setTimeout(() => document.getElementById('force-orientation')?.remove(), 1500);
+        return () => {
+            const el = document.getElementById('schedule-page-orientation');
+            if (el) el.remove();
+        };
+    }, [printOrientation]);
+
+    const [isPreparingPrint, setIsPreparingPrint] = useState(false);
+
+    // Imprime el horario como PDF en Hoja Carta. Chrome ignora la orientación CSS (@page) con
+    // impresoras físicas (p. ej. EPSON) cuando hay márgenes "Ninguno"/escala personalizada guardados,
+    // por eso se genera un PDF con la hoja ya en horizontal: la vista previa y la impresión salen
+    // siempre en la orientación elegida.
+    const handlePrint = async () => {
+        if (isPreparingPrint) return;
+        const source = document.querySelector('.schedule-container');
+        if (!source) return;
+
+        const isLandscape = printOrientation === 'landscape';
+        const MARGIN_MM = 6;
+        const pageW = isLandscape ? 279.4 : 215.9;
+        const pageH = isLandscape ? 215.9 : 279.4;
+        const maxContentW = pageW - MARGIN_MM * 2;
+        const maxContentH = pageH - MARGIN_MM * 2;
+
+        setIsPreparingPrint(true);
+        source.classList.add('schedule-rendering-pdf');
+        try {
+            // Renderizar la tabla del horario a imagen PNG con alta resolución usando el motor nativo del navegador
+            const dataUrl = await toPng(source, {
+                pixelRatio: 2.5,
+                backgroundColor: '#ffffff',
+                filter: (node) => !node.classList?.contains('no-print') && !node.classList?.contains('subject-indicators')
+            });
+
+            // Medir dimensiones reales de la imagen renderizada
+            const img = new Image();
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = dataUrl;
+            });
+
+            const pdf = new jsPDF({
+                orientation: isLandscape ? 'l' : 'p',
+                unit: 'mm',
+                format: 'letter',
+                compress: true
+            });
+
+            // Ajustar proporcionalmente para llenar la hoja carta sin deformación ni cortes
+            const ratio = Math.min(maxContentW / img.width, maxContentH / img.height);
+            const printW = img.width * ratio;
+            const printH = img.height * ratio;
+            const posX = (pageW - printW) / 2;
+            const posY = (pageH - printH) / 2;
+
+            pdf.addImage(dataUrl, 'PNG', posX, posY, printW, printH, undefined, 'FAST');
+
+            const blob = pdf.output('blob');
+            const blobUrl = URL.createObjectURL(blob);
+
+            // Imprimir el PDF mediante un iframe oculto (sin bloqueos de popups)
+            document.getElementById('schedule-print-frame')?.remove();
+            const iframe = document.createElement('iframe');
+            iframe.id = 'schedule-print-frame';
+            iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+            iframe.src = blobUrl;
+            iframe.onload = () => {
+                setTimeout(() => {
+                    try {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                    } catch (err) {
+                        console.warn('No se pudo imprimir desde el iframe, abriendo el PDF:', err);
+                        window.open(blobUrl, '_blank');
+                    }
+                }, 400);
+            };
+            document.body.appendChild(iframe);
+
+            setTimeout(() => {
+                iframe.remove();
+                URL.revokeObjectURL(blobUrl);
+            }, 10 * 60 * 1000);
+        } catch (err) {
+            console.error('Error generando la impresión del horario:', err);
+            alert('Ocurrió un error al preparar la impresión del horario.');
+        } finally {
+            source.classList.remove('schedule-rendering-pdf');
+            setIsPreparingPrint(false);
+        }
     };
+
+    // Ctrl+P / Cmd+P en esta vista usa la misma impresión en PDF con la orientación elegida
+    const handlePrintRef = useRef(handlePrint);
+    handlePrintRef.current = handlePrint;
+    useEffect(() => {
+        const onKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'p' || e.key === 'P')) {
+                e.preventDefault();
+                handlePrintRef.current();
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, []);
 
     const monthsNames = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
     const dayNames = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
@@ -621,44 +720,109 @@ const Schedule = () => {
     };
 
     return (
-        <div className="schedule-wrapper" style={{ padding: 0, margin: 0 }}>
+        <div className={`schedule-wrapper schedule-print-${printOrientation}`} style={{ padding: 0, margin: 0 }}>
             <div className="schedule-container" style={{ margin: '0 auto' }}>
 
-                {/* App Controls */}
+                {/* Barra de Herramientas y Controles (Agenda / Horario) */}
                 <div className="schedule-app-controls no-print">
-                    <div className="schedule-week-navigator">
-                        <button className="schedule-btn schedule-btn-nav" onClick={navigatePrev}>◀ Semana Anterior</button>
-                        <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-                            <input 
-                                type="date" 
-                                title="Buscar una fecha" 
-                                value={getWeekStartStr()} 
+                    {/* Grupo Izquierdo: Navegación Semanal Unificada */}
+                    <div className="schedule-nav-group">
+                        <button
+                            type="button"
+                            className="schedule-btn schedule-btn-nav"
+                            onClick={navigatePrev}
+                            title="Ir a la semana anterior"
+                        >
+                            <ChevronLeft size={15} strokeWidth={2.5} />
+                            <span>Anterior</span>
+                        </button>
+
+                        <div className="schedule-date-picker-box">
+                            <input
+                                type="date"
+                                className="schedule-date-input"
+                                title="Seleccionar fecha para ir a esa semana"
+                                value={getWeekStartStr()}
                                 onChange={handleDateSearch}
                             />
-                            <button className="schedule-btn schedule-btn-nav" onClick={navigateToday}>📅 Hoy</button>
                         </div>
-                        <button className="schedule-btn schedule-btn-nav" onClick={navigateNext}>Semana Siguiente ▶</button>
+
+                        <button
+                            type="button"
+                            className="schedule-btn schedule-btn-today"
+                            onClick={navigateToday}
+                            title="Volver a la semana actual (Hoy)"
+                        >
+                            <CalendarCheck size={14} strokeWidth={2.3} />
+                            <span>Hoy</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className="schedule-btn schedule-btn-nav"
+                            onClick={navigateNext}
+                            title="Ir a la semana siguiente"
+                        >
+                            <span>Siguiente</span>
+                            <ChevronRight size={15} strokeWidth={2.5} />
+                        </button>
                     </div>
 
-                    <div style={{display:'flex', alignItems:'center', gap:'10px', flexWrap: 'wrap'}}>
-                        <div className="schedule-current-week-display">{currentWeekDisplay}</div>
+                    {/* Grupo Central: Indicador de Semana Activa */}
+                    <div className="schedule-current-week-badge" title="Semana activa en vista">
+                        <Calendar size={14} strokeWidth={2.3} className="schedule-week-badge-icon" />
+                        <span>{currentWeekDisplay}</span>
+                    </div>
 
-                        <button 
-                            className="schedule-btn schedule-btn-config" 
+                    {/* Grupo Derecho: Orientación, Configuración e Impresión */}
+                    <div className="schedule-actions-group">
+                        <div className="schedule-orientation-switch" role="group" aria-label="Orientación de hoja">
+                            <span className="schedule-orientation-label">Orientación:</span>
+                            <button
+                                type="button"
+                                className={`schedule-orient-btn ${printOrientation === 'landscape' ? 'active' : ''}`}
+                                onClick={() => setPrintOrientation('landscape')}
+                                title="Orientación Horizontal (Hoja Carta) - Llenado óptimo"
+                            >
+                                <svg width="13" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
+                                    <rect x="1" y="1" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+                                </svg>
+                                <span>Horizontal</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={`schedule-orient-btn ${printOrientation === 'portrait' ? 'active' : ''}`}
+                                onClick={() => setPrintOrientation('portrait')}
+                                title="Orientación Vertical (Hoja Carta)"
+                            >
+                                <svg width="10" height="13" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+                                    <rect x="1" y="1" width="8" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+                                </svg>
+                                <span>Vertical</span>
+                            </button>
+                        </div>
+
+                        <div className="schedule-toolbar-divider" aria-hidden="true" />
+
+                        <button
+                            type="button"
+                            className="schedule-btn schedule-btn-config"
                             onClick={() => setIsConfigModalOpen(true)}
                             title="Cargar y configurar todos los datos del horario escolar"
                         >
-                            <span style={{ fontSize: '0.95rem' }}>⚙️</span>
-                            <span>Cargar / Configurar Horario</span>
+                            <Settings size={14} strokeWidth={2.3} />
+                            <span>Configurar Horario</span>
                         </button>
 
-                        <button 
-                            className="schedule-btn schedule-btn-print" 
+                        <button
+                            type="button"
+                            className="schedule-btn schedule-btn-print"
                             onClick={handlePrint}
-                            title="Imprimir horario escolar en formato horizontal"
+                            disabled={isPreparingPrint}
+                            title={`Imprimir horario escolar en formato ${printOrientation === 'landscape' ? 'horizontal' : 'vertical'}`}
                         >
-                            <span style={{ fontSize: '0.95rem' }}>🖨️</span>
-                            <span>Imprimir</span>
+                            <Printer size={14} strokeWidth={2.3} />
+                            <span>{isPreparingPrint ? 'Preparando...' : 'Imprimir'}</span>
                         </button>
                     </div>
                 </div>

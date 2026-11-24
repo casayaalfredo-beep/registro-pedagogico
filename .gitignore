@@ -9,8 +9,15 @@ BACKUPS_SEGURIDAD/
 server/prisma/backups_auto/
 server/prisma/backups_auto/temp/
 server/prisma/dev_backup*.db
+server/prisma/sync_meta.json
 
 # Logs y temporales
 *.log
 .DS_Store
 Thumbs.db
+server/.env
+.env
+test*.pdf
+test*.html
+client/test.pdf
+

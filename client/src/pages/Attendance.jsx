@@ -439,20 +439,22 @@ const Attendance = () => {
         wrapper.style.position = 'absolute';
         wrapper.style.top = '-9999px';
         wrapper.style.left = '-9999px';
-        wrapper.style.width = 'max-content';
+        wrapper.style.width = '820px';
         wrapper.style.zIndex = '-9999';
         wrapper.appendChild(clone);
         document.body.appendChild(wrapper);
 
         try {
-            const noPrintElements = clone.querySelectorAll('.print\\:hidden, .no-print');
-            noPrintElements.forEach(el => el.style.display = 'none');
-            
+            clone.classList.add('asistencia-diaria-pdf');
+
             const printOnlyElements = clone.querySelectorAll('.print\\:block');
             printOnlyElements.forEach(el => {
                 el.classList.remove('hidden', 'print:block');
                 el.classList.add('block');
             });
+
+            const noPrintElements = clone.querySelectorAll('.print\\:hidden, .no-print');
+            noPrintElements.forEach(el => el.remove());
             
             const scrollContainers = clone.querySelectorAll('.overflow-x-auto, .overflow-auto, .overflow-y-auto');
             scrollContainers.forEach(el => {
@@ -463,35 +465,38 @@ const Attendance = () => {
                 el.style.maxWidth = 'none';
             });
 
-            await new Promise(r => setTimeout(r, 50));
+            await new Promise(r => setTimeout(r, 60));
 
             const imgData = await toPng(clone, {
                 backgroundColor: '#ffffff',
-                pixelRatio: 2
+                pixelRatio: 2.5
             });
             
             const pdf = new jsPDF({
                 orientation: 'p',
-                unit: 'px',
-                format: 'letter'
+                unit: 'mm',
+                format: 'letter',
+                compress: true
             });
             
             const rect = clone.getBoundingClientRect();
-            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
             
-            let drawWidth = pdfWidth;
-            let drawHeight = (rect.height * pdfWidth) / rect.width;
+            // 1 sola hoja Carta vertical con margen superior reducido (0.4 cm) y ~2.8 cm libres al final para firmas
+            const marginTop = 4;
+            const marginBottom = 28;
+            const marginX = 4;
 
-            if (drawHeight > pageHeight) {
-                const ratio = pageHeight / drawHeight;
-                drawHeight = pageHeight;
-                drawWidth = drawWidth * ratio;
-            }
+            const availWidth = pageWidth - marginX * 2;
+            const availHeight = pageHeight - marginTop - marginBottom;
+
+            const scale = Math.min(availWidth / rect.width, availHeight / rect.height);
+            const drawWidth = rect.width * scale;
+            const drawHeight = rect.height * scale;
+            const xOffset = (pageWidth - drawWidth) / 2;
             
-            const marginX = (pdfWidth - drawWidth) / 2;
-            
-            pdf.addImage(imgData, 'PNG', marginX, 0, drawWidth, drawHeight);
+            pdf.addImage(imgData, 'PNG', xOffset, marginTop, drawWidth, drawHeight);
             pdf.save(`Registro_Asistencia_${trimestre}Trim.pdf`);
             
         } catch (err) {
@@ -502,10 +507,228 @@ const Attendance = () => {
         }
     };
 
+    // Ajuste dinámico para garantizar 1 sola hoja Carta Vertical con espacio libre al final (~3.5 cm) para firmas
+    const asistenciaEstHeight = 135 + Math.max(estudiantes.length, 1) * 19.5;
+    const asistenciaPrintZoom = asistenciaEstHeight > 860 ? Number((860 / asistenciaEstHeight).toFixed(3)) : 1;
+
     return (
-        <div className="p-0 sm:p-0.5 print-content" onPaste={handlePasteFromSystem}>
+        <div className="p-0 sm:p-0.5 print-content asistencia-diaria-print" onPaste={handlePasteFromSystem}>
+            <style>{`
+                @media print {
+                    @page {
+                        size: letter portrait;
+                        margin: 4mm 5mm 5mm 5mm;
+                    }
+                    .asistencia-diaria-print {
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        width: 100% !important;
+                        zoom: ${asistenciaPrintZoom};
+                        page-break-after: avoid !important;
+                        break-after: avoid !important;
+                    }
+                    .asistencia-diaria-print .asistencia-print-header {
+                        margin-top: 0 !important;
+                        margin-bottom: 5px !important;
+                    }
+                    .asistencia-diaria-print .asistencia-print-header h1 {
+                        font-size: 15px !important;
+                        line-height: 1.15 !important;
+                        margin: 0 !important;
+                    }
+                    .asistencia-diaria-print .asistencia-print-header p {
+                        font-size: 9.5px !important;
+                        margin: 1px 0 3px 0 !important;
+                    }
+                    .asistencia-diaria-print .asistencia-print-meta {
+                        padding: 2.5px 8px !important;
+                        gap: 14px !important;
+                        font-size: 9.5px !important;
+                    }
+                    .asistencia-diaria-print .overflow-x-auto {
+                        overflow: visible !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia {
+                        width: 770px !important;
+                        max-width: 100% !important;
+                        border-collapse: collapse !important;
+                        table-layout: fixed !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia thead tr:first-child th {
+                        padding: 2px 3px !important;
+                        font-size: 9px !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia thead tr:first-child th:nth-child(1) {
+                        width: 22px !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia thead tr:first-child th:nth-child(2) {
+                        width: 200px !important;
+                        white-space: nowrap !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia thead tr:first-child th:nth-child(3) {
+                        width: 480px !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia thead tr:first-child th:nth-child(4) {
+                        width: 68px !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia thead tr.h-24 {
+                        height: 64px !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia thead tr.h-24 th {
+                        width: 15.5px !important;
+                        min-width: 0 !important;
+                        padding: 0 !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia thead tr.h-24 th:nth-last-child(-n+4) {
+                        width: 17px !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia thead tr.h-24 span {
+                        font-size: 9px !important;
+                        width: 60px !important;
+                        color: #000000 !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia tbody tr {
+                        height: 18.5px !important;
+                        page-break-inside: avoid !important;
+                        break-inside: avoid !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia tbody td {
+                        padding: 0 !important;
+                        min-width: 0 !important;
+                        line-height: 1.05 !important;
+                        border: 1px solid #cbd5e1 !important;
+                        white-space: nowrap !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia tbody td:first-child {
+                        font-size: 9.5px !important;
+                        font-weight: 700 !important;
+                        color: #000000 !important;
+                        padding: 0 2px !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia tbody td:nth-child(2) {
+                        font-size: 9.8px !important;
+                        font-weight: 700 !important;
+                        color: #000000 !important;
+                        padding: 0 4px !important;
+                        white-space: nowrap !important;
+                        overflow: hidden !important;
+                        text-overflow: ellipsis !important;
+                    }
+                    .asistencia-diaria-print .tabla-asistencia tbody td input {
+                        width: 100% !important;
+                        min-width: 0 !important;
+                        min-height: 16.5px !important;
+                        height: 16.5px !important;
+                        font-size: 10px !important;
+                        font-weight: 900 !important;
+                        line-height: 1 !important;
+                        padding: 0 !important;
+                    }
+                }
+                .asistencia-diaria-pdf {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    width: 820px !important;
+                    background: #ffffff !important;
+                }
+                .asistencia-diaria-pdf > div {
+                    box-shadow: none !important;
+                    border: none !important;
+                    border-radius: 0 !important;
+                }
+                .asistencia-diaria-pdf .asistencia-print-header {
+                    margin-top: 0 !important;
+                    margin-bottom: 6px !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia {
+                    width: 820px !important;
+                    border-collapse: collapse !important;
+                    table-layout: fixed !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia thead tr:first-child th:nth-child(1) {
+                    width: 24px !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia thead tr:first-child th:nth-child(2) {
+                    width: 204px !important;
+                    white-space: nowrap !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia thead tr:first-child th:nth-child(3) {
+                    width: 516px !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia thead tr:first-child th:nth-child(4) {
+                    width: 76px !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia thead tr.h-24 {
+                    height: 68px !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia thead tr.h-24 th {
+                    width: 16.6px !important;
+                    min-width: 0 !important;
+                    padding: 0 !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia thead tr.h-24 th:nth-last-child(-n+4) {
+                    width: 19px !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia thead tr.h-24 span {
+                    font-size: 9.5px !important;
+                    width: 64px !important;
+                    color: #000000 !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia tbody tr {
+                    height: 20px !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia tbody td {
+                    padding: 0 !important;
+                    min-width: 0 !important;
+                    border: 1px solid #cbd5e1 !important;
+                    white-space: nowrap !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia tbody td:first-child {
+                    font-size: 10px !important;
+                    font-weight: 700 !important;
+                    color: #000000 !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia tbody td:nth-child(2) {
+                    font-size: 10.5px !important;
+                    font-weight: 700 !important;
+                    color: #000000 !important;
+                    padding: 0 4px !important;
+                    white-space: nowrap !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia tbody td input {
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    min-height: 18px !important;
+                    height: 18px !important;
+                    font-size: 11px !important;
+                    font-weight: 900 !important;
+                    padding: 0 !important;
+                }
+                .asistencia-diaria-pdf .tabla-asistencia tbody td:nth-last-child(-n+4) {
+                    font-size: 11px !important;
+                    font-weight: 800 !important;
+                }
+            `}</style>
+
+            {/* Header de Impresión */}
+            <div className="hidden print:block mb-2 asistencia-print-header">
+                <div className="text-center mb-1.5">
+                    <h1 className="text-xl font-black text-slate-800 uppercase">Control de Asistencia</h1>
+                    <p className="text-xs text-slate-600 font-bold">{config?.unidadEducativa || 'Unidad Educativa'}</p>
+                </div>
+                <div className="flex justify-center gap-6 text-xs font-bold border border-slate-300 rounded p-1.5 bg-slate-50 asistencia-print-meta">
+                    <span><span className="text-slate-500">Maestro:</span> {config?.maestro || '---'}</span>
+                    <span><span className="text-slate-500">Grado:</span> {config?.curso || '---'}</span>
+                    <span><span className="text-slate-500">Asignatura:</span> {config?.area || '---'}</span>
+                    <span><span className="text-slate-500">Gestión:</span> {config?.gestion || '---'}</span>
+                    <span><span className="text-slate-500">Trimestre:</span> {trimestre}º</span>
+                </div>
+            </div>
+
             {/* ── Cabecera ─────────────────────────────────────────────────── */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-6 no-print">
                 <div className="space-y-3 w-full md:w-auto">
                     <div className="flex items-center gap-4">
                         <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
@@ -590,7 +813,7 @@ const Attendance = () => {
 
             {/* ── Totales del día seleccionado ──────────────────────────────── */}
             {selectedDay && dayTotals && (
-                <div className="mb-3 flex items-center justify-between text-[10px] text-slate-700 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">
+                <div className="mb-3 flex items-center justify-between text-[10px] text-slate-700 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200 no-print">
                     <div className="flex items-center gap-6">
                         <span className="font-bold text-green-700 border-r border-yellow-300 pr-3">
                             ASISTENCIAS: {dayTotals.totalAsist}
@@ -664,7 +887,7 @@ const Attendance = () => {
                                 return (
                                     <tr
                                         key={e.id}
-                                        className={`border-b border-slate-100 transition-colors duration-150 ${activeRow === idx ? 'bg-purple-100/70' : 'hover:bg-slate-50'}`}
+                                        className={`border-b border-slate-100 ${activeRow === idx ? 'bg-purple-100' : ''} hover:bg-purple-200`}
                                     >
                                         <td className="border border-slate-300 text-center font-bold text-slate-400 py-1">{idx + 1}</td>
                                         <td className="border border-slate-300 px-2 font-bold text-slate-700 uppercase">{e.apellidos} {e.nombres}</td>
@@ -674,7 +897,7 @@ const Attendance = () => {
                                             return (
                                                 <td
                                                     key={d}
-                                                    className={`border border-slate-300 transition-colors p-0 m-0 relative ${
+                                                    className={`border border-slate-300 p-0 m-0 relative ${
                                                         status === 'A' ? 'bg-green-100 text-green-700' :
                                                         status === 'F' ? 'bg-red-100 text-red-700' :
                                                         status === 'R' ? 'bg-blue-100 text-blue-700' :

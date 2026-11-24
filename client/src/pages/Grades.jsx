@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, Printer, Info, Download, RefreshCw, Lock, Calendar, ChevronDown, Award, QrCode } from 'lucide-react';
+import { GraduationCap, Printer, Info, Download, RefreshCw, Lock, Calendar, ChevronDown, Award } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import api from '../api';
 import { getCurrentTrimester } from '../utils/trimester';
 import './Grades.css';
 import StudentRow from './StudentRow';
-import OmrScannerModal from '../components/OmrScannerModal';
 
 const Grades = () => {
     const [estudiantes, setEstudiantes] = useState([]);
@@ -21,9 +20,7 @@ const Grades = () => {
     const [isLocked, setIsLocked] = useState(() => document.body.classList.contains('valoracion-locked'));
     const [openDropdownKey, setOpenDropdownKey] = useState(null);
     const [editingSellosKey, setEditingSellosKey] = useState(null);
-    const [showOmrModal, setShowOmrModal] = useState(false);
     const dateInputRefs = React.useRef({});
-    const lastOmrCountRef = React.useRef(null);
 
     // Refs robustos para manejar el debounce de forma segura y sin colisiones
     const gradesRef = React.useRef({});
@@ -116,43 +113,6 @@ const Grades = () => {
             fetchGrades(configId, trimestre);
             loadHeaders(configId, trimestre);
         }
-    }, [trimestre]);
-
-    // ── Escucha automática en segundo plano de nuevas calificaciones OMR (Celular -> PC) ──
-    useEffect(() => {
-        const pollOmr = async () => {
-            try {
-                const res = await api.get('/omr/status');
-                const st = res.data?.omrState;
-                if (!st) return;
-
-                if (lastOmrCountRef.current === null) {
-                    lastOmrCountRef.current = st.totalAppliedSinceStart || 0;
-                    return;
-                }
-
-                if ((st.totalAppliedSinceStart || 0) > lastOmrCountRef.current) {
-                    lastOmrCountRef.current = st.totalAppliedSinceStart;
-                    const configId = localStorage.getItem('activeConfigId');
-                    if (configId) {
-                        fetchGrades(configId, trimestre);
-                        loadHeaders(configId, trimestre);
-                    }
-                    const latest = st.recentApplied?.[0];
-                    if (latest) {
-                        setSyncMessage({
-                            type: 'success',
-                            text: `📷 OMR: #${latest.numeroLista} ${latest.nombreCompleto} → ${latest.puntaje}/45 pts`
-                        });
-                        setTimeout(() => setSyncMessage(null), 5000);
-                    }
-                }
-            } catch { /* ignorar silenciosamente */ }
-        };
-
-        pollOmr();
-        const timer = setInterval(pollOmr, 5000);
-        return () => clearInterval(timer);
     }, [trimestre]);
 
     // ── Ctrl+Z: Registro del listener global de teclado (montado una sola vez) ────
@@ -989,14 +949,23 @@ const Grades = () => {
         document.body.appendChild(wrapper);
 
         try {
+            clone.classList.add('pdf-export-mode');
+
             const headerElements = clone.querySelectorAll('.print\\:block');
-            const noPrintElements = clone.querySelectorAll('.no-print');
+            const noPrintElements = clone.querySelectorAll('.no-print, .print\\:hidden');
             const scrollContainer = clone.querySelector('.print-grades-container > div');
             
             headerElements.forEach(el => {
                 el.classList.remove('hidden', 'print:block');
                 el.classList.add('block');
             });
+
+            // Ajustar espaciado superior del encabezado del PDF para aprovechar al máximo la hoja Carta
+            const topPrintHeader = clone.querySelector(':scope > .block');
+            if (topPrintHeader) {
+                topPrintHeader.style.marginTop = '0';
+                topPrintHeader.style.marginBottom = '8px';
+            }
             
             noPrintElements.forEach(el => {
                 el.style.display = 'none';
@@ -1012,32 +981,46 @@ const Grades = () => {
             const theads = clone.querySelectorAll('thead');
             theads.forEach(th => {
                 th.style.position = 'static';
-                // Asegurar color explícito en bordes para PDF
-                th.querySelectorAll('th').forEach(cell => {
-                    cell.style.borderColor = '#cbd5e1';
-                });
             });
 
             // Breve espera para asegurar aplicación de estilos al clon
-            await new Promise(r => setTimeout(r, 50));
+            await new Promise(r => setTimeout(r, 60));
 
             // toPng parsea CSS moderno de Tailwind (como oklch) vía SVG <foreignObject>
             const imgData = await toPng(clone, {
                 backgroundColor: '#ffffff',
-                pixelRatio: 2
+                pixelRatio: 2.5
             });
             
             const rect = clone.getBoundingClientRect();
-            const pdfWidth = rect.width;
-            const pdfHeight = rect.height;
+            const contentWidth = rect.width;
+            const contentHeight = rect.height;
             
+            // Generar PDF en formato estándar Carta vertical (215.9 x 279.4 mm)
+            // anclado en la parte superior para eliminar el margen superior excesivo al imprimir
             const pdf = new jsPDF({
-                orientation: pdfWidth > pdfHeight ? 'l' : 'p',
-                unit: 'px',
-                format: [pdfWidth, pdfHeight]
+                orientation: 'p',
+                unit: 'mm',
+                format: 'letter',
+                compress: true
             });
-            
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+
+            const marginTop = 4;    // 0.4 cm (en impresión "Ajustar al área" queda ~0.7–0.8 cm, similar a Imprimir)
+            const marginBottom = 25; // 2.5 cm reservados en la parte inferior para firmas
+            const marginX = 3;      // 0.3 cm laterales
+
+            const availWidth = pageWidth - marginX * 2;
+            const availHeight = pageHeight - marginTop - marginBottom;
+
+            const scale = Math.min(availWidth / contentWidth, availHeight / contentHeight);
+            const drawWidth = contentWidth * scale;
+            const drawHeight = contentHeight * scale;
+            const xOffset = (pageWidth - drawWidth) / 2;
+
+            pdf.addImage(imgData, 'PNG', xOffset, marginTop, drawWidth, drawHeight);
             pdf.save(`Registro_Valoracion_${trimestre}Trim.pdf`);
             
             setSavingStatus('saved');
@@ -1163,16 +1146,6 @@ const Grades = () => {
                         )}
                     </div>
                     <div className="flex flex-col gap-2 no-print">
-                        {/* Botón Escáner Óptico OMR (QR Celular / Automático) */}
-                        <button
-                            type="button"
-                            onClick={() => setShowOmrModal(true)}
-                            title="Abrir Escáner Óptico OMR (Código QR para Celular y Sincronización Automática con Supabase)"
-                            className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 justify-center text-white px-4 py-2.5 rounded-xl font-bold flex items-center space-x-2 transition shadow-lg shadow-indigo-200 hover:-translate-y-1 active:scale-95"
-                        >
-                            <QrCode size={16} />
-                            <span className="text-[11px] uppercase tracking-wider">Escáner OMR (QR)</span>
-                        </button>
                         {/* Botón Sincronizar Asistencia */}
                         <button
                             onClick={handleSyncAsistencia}
@@ -1343,18 +1316,6 @@ const Grades = () => {
                     </table>
                 </div>
             </div>
-
-            <OmrScannerModal
-                isOpen={showOmrModal}
-                onClose={() => setShowOmrModal(false)}
-                onGradesUpdated={() => {
-                    const configId = localStorage.getItem('activeConfigId');
-                    if (configId) {
-                        fetchGrades(configId, trimestre);
-                        loadHeaders(configId, trimestre);
-                    }
-                }}
-            />
         </div>
     );
 };

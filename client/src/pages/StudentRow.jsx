@@ -161,7 +161,7 @@ const StudentRow = React.memo(({ e, idx, initialGrades, headers = {}, onSave, on
     };
 
     return (
-        <tr key={e.id}>
+        <tr key={e.id} className="hover:bg-purple-200">
             <td className="font-bold border-r pr-1 text-right">{idx + 1}</td>
             <td className="!text-left pl-2 uppercase text-[12px]">{e.apellidos} {e.nombres}</td>
             

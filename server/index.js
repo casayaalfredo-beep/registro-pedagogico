@@ -18,7 +18,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'registro_pedagogico_2026_seguro';
 console.log('[INIT] Starting server...');
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -38,7 +39,7 @@ const upload = multer({ storage: storage });
 const uploadMemory = multer({ storage: multer.memoryStorage() });
 const siePdfParser = require('./services/siePdfParser');
 const syncService = require('./services/syncService');
-const omrSupabaseSync = require('./services/omrSupabaseSync');
+const supabaseCloudService = require('./services/supabaseCloudService');
 
 console.log('[INIT] Setting up CORS and JSON middleware');
 app.use((req, res, next) => {
@@ -74,7 +75,7 @@ const authMiddleware = (req, res, next) => {
   if (!path.startsWith('/api')) {
     return next();
   }
-  if (path === '/api/login' || path.startsWith('/api/grade-headers') || path.startsWith('/api/repositorio/download') || path.startsWith('/api/centralizador-general') || path.startsWith('/api/seguimiento') || path.startsWith('/api/asistencia-lunes') || path.startsWith('/api/fechas-asistencia-lunes') || path.startsWith('/api/avance-curricular') || path.startsWith('/api/agenda') || path.startsWith('/api/planes-programas') || path.startsWith('/api/sync') || path.startsWith('/api/omr')) {
+  if (path === '/api/login' || path.startsWith('/api/grade-headers') || path.startsWith('/api/repositorio/download') || path.startsWith('/api/centralizador-general') || path.startsWith('/api/seguimiento') || path.startsWith('/api/asistencia-lunes') || path.startsWith('/api/fechas-asistencia-lunes') || path.startsWith('/api/avance-curricular') || path.startsWith('/api/agenda') || path.startsWith('/api/planes-programas') || path.startsWith('/api/sync')) {
     return next();
   }
   authenticateToken(req, res, next);
@@ -82,6 +83,31 @@ const authMiddleware = (req, res, next) => {
 
 console.log('[INIT] Registering middleware...');
 app.use(authMiddleware);
+
+// Asegurar hidratación desde Supabase al despertar el servidor (Celular o PC) y sincronización continua
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api/') && req.path !== '/api/login' && !req.path.startsWith('/api/sync/')) {
+    const isReadRequest = req.method === 'GET';
+    await supabaseCloudService.ensureReady(prisma, isReadRequest);
+  }
+  next();
+});
+
+// Auto-Sincronización permanente en segundo plano hacia Supabase tras cualquier cambio de datos
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'DELETE'].includes(req.method) && req.path.startsWith('/api/')) {
+    const ignorePaths = ['/api/login', '/api/estudiantes/parse-sie-pdf'];
+    const isSyncRoute = req.path.startsWith('/api/sync/');
+    if (!ignorePaths.includes(req.path) && !isSyncRoute) {
+      res.on('finish', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          supabaseCloudService.scheduleAutoPush(prisma, `${req.method} ${req.path}`);
+        }
+      });
+    }
+  }
+  next();
+});
 console.log('[INIT] Middleware registered');
 
 const loginSchema = z.object({
@@ -178,14 +204,6 @@ app.post('/api/login', async (req, res) => {
     console.error('Error en login:', error.message);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
-});
-
-const omrPortalTopPath = path.join(__dirname, '..', 'omr-portal', 'index.html');
-app.get(['/omr', '/omr/', '/omr.html'], (req, res) => {
-  if (fs.existsSync(omrPortalTopPath)) {
-    return res.sendFile(omrPortalTopPath);
-  }
-  res.status(404).send('Portal OMR no encontrado.');
 });
 
 const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
@@ -2642,17 +2660,197 @@ app.delete('/api/planes-programas/:configId', async (req, res) => {
 })();
 
 // ============================================================
-// RUTAS DE SINCRONIZACIÓN Y RESPALDO (OFFLINE-FIRST)
+// RUTAS DE SINCRONIZACIÓN Y RESPALDO (OFFLINE-FIRST + SUPABASE PERMANENTE)
 // ============================================================
 
-// 1. Obtener estado de la base de datos y estadísticas
+// 1. Obtener estado de la base de datos local, respaldos y estadísticas
 app.get('/api/sync/status', async (req, res) => {
   try {
     const stats = await syncService.getStats(prisma);
-    res.json(stats);
+    const localBackups = syncService.listLocalBackups();
+    res.json({
+      ...stats,
+      localBackups,
+      supabaseState: {
+        autoSyncEnabled: supabaseCloudService.cloudState.autoSyncEnabled,
+        isSyncing: supabaseCloudService.cloudState.isSyncing,
+        online: supabaseCloudService.cloudState.online,
+        lastPushAt: supabaseCloudService.cloudState.lastPushAt,
+        lastPullAt: supabaseCloudService.cloudState.lastPullAt,
+        lastCloudUpdatedAt: supabaseCloudService.cloudState.lastCloudUpdatedAt,
+        lastDeviceOrigin: supabaseCloudService.cloudState.lastDeviceOrigin,
+        lastError: supabaseCloudService.cloudState.lastError
+      }
+    });
   } catch (error) {
     console.error('[Sync Route] Error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 1b. Obtener estado en vivo de Supabase Cloud Permanente + Datos Locales
+app.get('/api/sync/supabase-status', async (req, res) => {
+  try {
+    await supabaseCloudService.ensureReady(prisma, false);
+    const [localStats, cloudStatus] = await Promise.all([
+      syncService.getStats(prisma),
+      supabaseCloudService.getCloudStatus()
+    ]);
+    const localBackups = syncService.listLocalBackups();
+    res.json({
+      success: true,
+      local: localStats,
+      cloud: cloudStatus,
+      localBackups
+    });
+  } catch (error) {
+    console.error('[Sync Route] Error en supabase-status:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 1b-bis. Sincronización bidireccional en 1 clic ("Sincronizar con Supabase Ahora")
+app.post('/api/sync/supabase-sync', async (req, res) => {
+  try {
+    const result = await supabaseCloudService.syncBidirectionalWithSupabase(prisma);
+    const [localStats, cloudStatus] = await Promise.all([
+      syncService.getStats(prisma),
+      supabaseCloudService.getCloudStatus()
+    ]);
+    res.json({
+      ...result,
+      local: localStats,
+      cloud: cloudStatus,
+      localBackups: syncService.listLocalBackups(),
+      message: '¡Sincronizado con Supabase! Se integró y guardó la última modificación entre tu Celular y tu PC.'
+    });
+  } catch (error) {
+    console.error('[Sync Route] Error en supabase-sync:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'No se pudo sincronizar con Supabase Cloud.'
+    });
+  }
+});
+
+// 1b-ter. Verificar si otro dispositivo (Celular o PC) guardó cambios nuevos en Supabase
+app.get('/api/sync/check-updates', async (req, res) => {
+  try {
+    await supabaseCloudService.ensureReady(prisma, false);
+    const pulled = await supabaseCloudService.checkAndPullIfRemoteNewer(prisma);
+    res.json({
+      success: true,
+      pulled,
+      updatedAt: supabaseCloudService.cloudState.lastCloudUpdatedAt,
+      deviceOrigin: supabaseCloudService.cloudState.lastDeviceOrigin
+    });
+  } catch (error) {
+    res.json({ success: false, pulled: false });
+  }
+});
+
+// 1c. Subir y respaldar permanentemente en Supabase Cloud
+app.post('/api/sync/supabase-push', async (req, res) => {
+  try {
+    const { force = true } = req.body || {};
+    const result = await supabaseCloudService.pushToSupabase(prisma, {
+      reason: 'manual_user',
+      force: Boolean(force),
+      createSnapshot: true
+    });
+    const [localStats, cloudStatus] = await Promise.all([
+      syncService.getStats(prisma),
+      supabaseCloudService.getCloudStatus()
+    ]);
+    res.json({
+      ...result,
+      local: localStats,
+      cloud: cloudStatus
+    });
+  } catch (error) {
+    console.error('[Sync Route] Error en supabase-push:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'No se pudo subir los datos a Supabase Cloud.'
+    });
+  }
+});
+
+// 1d. Descargar y fusionar (o restaurar snapshot) desde Supabase Cloud Permanente
+app.post('/api/sync/supabase-pull', async (req, res) => {
+  try {
+    const { mode = 'merge', snapshotId = null } = req.body || {};
+    const result = await supabaseCloudService.pullFromSupabase(prisma, {
+      mode,
+      snapshotId,
+      preferRemote: true
+    });
+    const cloudStatus = await supabaseCloudService.getCloudStatus();
+    res.json({
+      ...result,
+      local: result.stats,
+      cloud: cloudStatus,
+      localBackups: syncService.listLocalBackups()
+    });
+  } catch (error) {
+    console.error('[Sync Route] Error en supabase-pull:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'No se pudo descargar los datos desde Supabase Cloud.'
+    });
+  }
+});
+
+// 1e. Activar/Desactivar sincronización automática en segundo plano
+app.post('/api/sync/auto-sync', (req, res) => {
+  const { enabled } = req.body || {};
+  const current = supabaseCloudService.setAutoSyncEnabled(enabled);
+  res.json({
+    success: true,
+    autoSyncEnabled: current
+  });
+});
+
+// 1f. Crear respaldo maestro inmediato en BACKUPS_SEGURIDAD y listar respaldos locales
+app.post('/api/sync/create-local-backup', async (req, res) => {
+  try {
+    const backupPath = syncService.createAutoBackup('manual_usuario');
+    const stats = await syncService.getStats(prisma);
+    const localBackups = syncService.listLocalBackups();
+    res.json({
+      success: true,
+      backupPath,
+      stats,
+      localBackups,
+      message: '¡Respaldo maestro creado y resguardado en BACKUPS_SEGURIDAD!'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 1g. Restaurar con 1 clic desde cualquier respaldo local (BACKUPS_SEGURIDAD o backups_auto)
+app.post('/api/sync/restore-local-backup', async (req, res) => {
+  try {
+    const { backupId } = req.body || {};
+    if (!backupId) {
+      return res.status(400).json({ success: false, error: 'Selecciona un respaldo para restaurar.' });
+    }
+    await syncService.restoreLocalBackupById(backupId, prisma);
+    // Sincronizar también el estado restaurado hacia Supabase
+    supabaseCloudService.scheduleAutoPush(prisma, 'restore_local_backup', 1500);
+
+    const stats = await syncService.getStats(prisma);
+    const localBackups = syncService.listLocalBackups();
+    res.json({
+      success: true,
+      stats,
+      localBackups,
+      message: '¡Punto de restauración aplicado con éxito! Tus datos han sido recuperados.'
+    });
+  } catch (error) {
+    console.error('[Sync Route] Error restaurando respaldo local:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -2693,14 +2891,18 @@ app.post('/api/sync/restore-db', syncUpload.single('file'), async (req, res) => 
     }
     const tempPath = req.file.path;
     try {
-      syncService.restoreFromUploadedDb(tempPath);
+      await syncService.restoreFromUploadedDbAsync(tempPath, prisma);
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+      // Respaldar inmediatamente en Supabase para que sea permanente
+      supabaseCloudService.scheduleAutoPush(prisma, 'restore_uploaded_db', 1000);
 
       const stats = await syncService.getStats(prisma);
       res.json({
         success: true,
-        message: 'Base de datos restaurada correctamente. Tus datos están intactos y actualizados.',
-        stats
+        message: 'Base de datos restaurada correctamente y sincronizada con Supabase.',
+        stats,
+        localBackups: syncService.listLocalBackups()
       });
     } catch (restoreErr) {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
@@ -2739,7 +2941,9 @@ app.post('/api/sync/remote-receive', async (req, res) => {
     }
 
     const payload = req.body;
-    await syncService.importFullJson(prisma, payload);
+    await syncService.importFullJson(prisma, payload, { mode: 'merge', preferRemote: true });
+    supabaseCloudService.scheduleAutoPush(prisma, 'remote_receive', 1000);
+
     const stats = await syncService.getStats(prisma);
     res.json({
       success: true,
@@ -2752,33 +2956,23 @@ app.post('/api/sync/remote-receive', async (req, res) => {
   }
 });
 
-// Helpers para sincronización resiliente con la nube
+// Helpers para compatibilidad y sincronización resiliente con la nube
 function formatSyncError(error, cleanUrl) {
   if (!error) return 'Error desconocido al sincronizar.';
   
   const cause = error.cause;
   const causeCode = cause?.code || error.code;
-  const causeMsg = cause?.message || '';
 
   if (error.name === 'TimeoutError' || cause?.name === 'TimeoutError' || causeCode === 'UND_ERR_CONNECT_TIMEOUT' || causeCode === 'ETIMEDOUT') {
-    return `Tiempo de espera agotado al conectar con "${cleanUrl}". Como el servidor gratuito de Render entra en reposo por inactividad, puede estar tardando unos segundos más en despertar. Por favor espera 30 segundos y vuelve a presionar el botón.`;
+    return `Tiempo de espera agotado al conectar con "${cleanUrl}". Verifica tu conexión a internet e intenta nuevamente.`;
   }
   if (causeCode === 'ENOTFOUND') {
-    return `No se pudo encontrar la dirección del servidor "${cleanUrl}". Verifica que tengas conexión a internet activa y que la URL esté escrita correctamente.`;
-  }
-  if (causeCode === 'ECONNREFUSED') {
-    return `La conexión fue rechazada en "${cleanUrl}". El servidor en la nube no está respondiendo en este momento.`;
-  }
-  if (causeCode === 'ECONNRESET') {
-    return `La conexión con el servidor en la nube se interrumpió inesperadamente (connection reset). Si el servidor estaba despertando de su suspensión, reintenta ahora.`;
-  }
-  if (error.message === 'fetch failed') {
-    return `No se pudo conectar con el servidor en la nube (${cleanUrl}). En el plan gratuito de Render, el servidor entra en reposo tras 15 minutos sin uso. Este primer intento lo despierta; por favor reintenta en unos instantes.`;
+    return `No se pudo encontrar la dirección del servidor "${cleanUrl}". Verifica que tengas conexión a internet activa.`;
   }
   return error.message || 'Error de comunicación con el servidor en la nube.';
 }
 
-async function ensureCloudServerAwake(cleanUrl, maxRetries = 2) {
+async function ensureCloudServerAwake(cleanUrl, maxRetries = 3) {
   let lastErr = null;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -2787,346 +2981,116 @@ async function ensureCloudServerAwake(cleanUrl, maxRetries = 2) {
         signal: AbortSignal.timeout(35000)
       });
       if (res.ok) {
-        console.log(`[Sync] Servidor en la nube activo y respondiendo correctamente.`);
         return true;
       }
-      console.warn(`[Sync] Intento ${attempt}: Servidor respondió con estado ${res.status}`);
+      lastErr = new Error(`Servidor respondió con estado HTTP ${res.status}`);
+      console.warn(`[Sync] Intento ${attempt}: ${lastErr.message}`);
     } catch (err) {
       lastErr = err;
-      console.warn(`[Sync] Intento ${attempt} no respondió (${err.message}): esperando arranque de Render...`);
-      if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 4000));
-      }
+      console.warn(`[Sync] Intento ${attempt} no respondió (${err.message})`);
+    }
+    if (attempt < maxRetries) {
+      await new Promise(r => setTimeout(r, 4000));
     }
   }
-  if (lastErr) {
-    throw lastErr;
-  }
+  if (lastErr) throw lastErr;
   return true;
 }
 
-// 6. Probar conexión y despertar servidor en la nube
+// 6. Probar conexión (usa Supabase Cloud por defecto para respuesta instantánea)
 app.post('/api/sync/test-connection', async (req, res) => {
-  const { cloudUrl } = req.body;
-  if (!cloudUrl) {
-    return res.status(400).json({ success: false, error: 'URL de la nube requerida' });
-  }
-  const cleanUrl = cloudUrl.trim().replace(/\/+$/, '');
-  const startTime = Date.now();
   try {
-    const remoteRes = await fetch(`${cleanUrl}/api/sync/status`, {
-      signal: AbortSignal.timeout(45000)
-    });
-    const latency = Date.now() - startTime;
-    if (!remoteRes.ok) {
-      return res.status(remoteRes.status).json({
-        success: false,
-        error: `El servidor respondió con código HTTP ${remoteRes.status}`,
-        latency
+    const cloudStatus = await supabaseCloudService.getCloudStatus();
+    if (cloudStatus.online) {
+      return res.json({
+        success: true,
+        awake: true,
+        latency: cloudStatus.latencyMs,
+        stats: cloudStatus
       });
     }
-    const data = await remoteRes.json();
-    return res.json({
-      success: true,
-      awake: true,
-      latency,
-      stats: data
-    });
-  } catch (error) {
-    console.error('[Sync Route] Error en test-connection:', error);
-    const friendlyError = formatSyncError(error, cleanUrl);
     return res.status(500).json({
       success: false,
-      error: friendlyError
+      error: cloudStatus.error || 'No se pudo conectar con Supabase Cloud.'
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
 
-// 7. Bajar cambios desde la nube hacia la laptop (1-Clic instantáneo)
+// 7. Bajar cambios desde la nube hacia la laptop (ahora respaldado por Supabase Cloud Permanente)
 app.post('/api/sync/pull-from-cloud', async (req, res) => {
-  const { cloudUrl } = req.body;
-  if (!cloudUrl) {
-    return res.status(400).json({ error: 'URL de la nube requerida' });
-  }
-  const cleanUrl = cloudUrl.trim().replace(/\/+$/, '');
-  const downloadUrl = `${cleanUrl}/api/sync/download-db`;
-
   try {
-    // Asegurar que el servidor esté despierto
-    await ensureCloudServerAwake(cleanUrl);
-
-    console.log('[Sync] Descargando base de datos desde la nube:', downloadUrl);
-    const remoteRes = await fetch(downloadUrl, {
-      signal: AbortSignal.timeout(60000)
+    const { mode = 'merge', snapshotId = null } = req.body || {};
+    const result = await supabaseCloudService.pullFromSupabase(prisma, {
+      mode,
+      snapshotId,
+      preferRemote: true
     });
-    if (!remoteRes.ok) {
-      throw new Error(`El servidor en la nube respondió con error HTTP ${remoteRes.status}`);
-    }
-
-    const buffer = Buffer.from(await remoteRes.arrayBuffer());
-    const tempFile = path.join(__dirname, 'prisma', 'backups_auto', `temp_pull_${Date.now()}.db`);
-    fs.writeFileSync(tempFile, buffer);
-
-    syncService.restoreFromUploadedDb(tempFile);
-    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-
-    const stats = await syncService.getStats(prisma);
     res.json({
       success: true,
-      message: '¡Cambios descargados exitosamente! Tu laptop está sincronizada con tu celular.',
-      stats
+      message: '¡Cambios descargados y fusionados exitosamente desde Supabase Cloud Permanente!',
+      stats: result.stats
     });
   } catch (error) {
     console.error('[Sync] Error al bajar de la nube:', error);
-    res.status(500).json({ error: formatSyncError(error, cleanUrl) });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// 8. Subir cambios desde la laptop hacia la nube (1-Clic instantáneo)
+// 8. Subir cambios desde la laptop hacia la nube (ahora guarda permanentemente en Supabase + despierta Render si aplica)
 app.post('/api/sync/push-to-cloud', async (req, res) => {
-  const { cloudUrl } = req.body;
-  if (!cloudUrl) {
-    return res.status(400).json({ error: 'URL de la nube requerida' });
-  }
-  const cleanUrl = cloudUrl.trim().replace(/\/+$/, '');
-  const uploadUrl = `${cleanUrl}/api/sync/restore-db`;
-
+  const { cloudUrl } = req.body || {};
   try {
-    // Asegurar que el servidor esté despierto
-    await ensureCloudServerAwake(cleanUrl);
-
-    console.log('[Sync] Subiendo base de datos a la nube:', uploadUrl);
-    if (!fs.existsSync(syncService.DB_PATH)) {
-      return res.status(404).json({ error: 'Base de datos local no encontrada' });
-    }
-
-    const fileBuffer = fs.readFileSync(syncService.DB_PATH);
-    const blob = new Blob([fileBuffer], { type: 'application/x-sqlite3' });
-    const formData = new FormData();
-    formData.append('file', blob, 'dev.db');
-
-    const remoteRes = await fetch(uploadUrl, {
-      method: 'POST',
-      body: formData,
-      signal: AbortSignal.timeout(60000)
+    const supaResult = await supabaseCloudService.pushToSupabase(prisma, {
+      reason: 'manual_push',
+      force: true,
+      createSnapshot: true
     });
 
-    let result = {};
-    const textResponse = await remoteRes.text();
-    try {
-      result = JSON.parse(textResponse);
-    } catch (e) {
-      if (!remoteRes.ok) {
-        throw new Error(`El servidor en la nube respondió con error HTTP ${remoteRes.status}`);
-      }
-      result = { message: textResponse };
-    }
-
-    if (!remoteRes.ok) {
-      throw new Error(result.error || `Error del servidor en la nube (${remoteRes.status})`);
+    // Opcionalmente sincronizar en segundo plano con el servidor web de Render si está configurado
+    if (cloudUrl && cloudUrl.includes('onrender.com')) {
+      const cleanUrl = cloudUrl.trim().replace(/\/+$/, '');
+      (async () => {
+        try {
+          await ensureCloudServerAwake(cleanUrl, 2);
+          const fullJson = await syncService.exportFullJson(prisma);
+          await fetch(`${cleanUrl}/api/sync/remote-receive`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer registro_pedagogico_2026_seguro'
+            },
+            body: JSON.stringify(fullJson),
+            signal: AbortSignal.timeout(35000)
+          });
+        } catch (e) {
+          // No afecta: los datos ya están 100% seguros en Supabase
+        }
+      })();
     }
 
     res.json({
       success: true,
-      message: '¡Datos subidos exitosamente! Tu celular ya tiene los últimos cambios de tu laptop.',
-      cloudStats: result.stats
+      message: '¡Datos guardados de forma PERMANENTE en Supabase Cloud y disponibles para tu celular!',
+      cloudStats: supaResult.counts,
+      updatedAt: supaResult.updatedAt
     });
   } catch (error) {
     console.error('[Sync] Error al subir a la nube:', error);
-    res.status(500).json({ error: formatSyncError(error, cleanUrl) });
-  }
-});
-
-// ============================================================
-// RUTAS DEL ESCÁNER ÓPTICO OMR AUTOMÁTICO (CELULAR <-> SUPABASE <-> REGISTRO)
-// ============================================================
-
-const omrPortalIndexPath = path.join(__dirname, '..', 'omr-portal', 'index.html');
-
-// Servir el Portal Móvil OMR en /omr (tanto en Wi-Fi Local como en Render)
-app.get(['/omr', '/omr/'], (req, res) => {
-  if (fs.existsSync(omrPortalIndexPath)) {
-    return res.sendFile(omrPortalIndexPath);
-  }
-  res.status(404).send('Portal OMR no encontrado.');
-});
-
-// 1. Estado del demonio OMR, URLs QR (Nube y Wi-Fi Local) y SQL Schema para Supabase
-app.get('/api/omr/status', async (req, res) => {
-  try {
-    const schemaPath = path.join(__dirname, '..', 'supabase', 'omr_schema.sql');
-    const schemaSql = fs.existsSync(schemaPath) ? fs.readFileSync(schemaPath, 'utf8') : '';
-    const localLanUrls = omrSupabaseSync.getLocalLanUrls(PORT);
-    const supaCfg = omrSupabaseSync.getSupabaseConfig();
-
-    res.json({
-      ok: true,
-      omrState: omrSupabaseSync.omrState,
-      supabaseConfigured: supaCfg.configured,
-      supabaseUrl: supaCfg.url,
-      portalPin: supaCfg.pin,
-      localLanUrls,
-      defaultLocalUrl: localLanUrls[0] || `http://localhost:${PORT}/omr`,
-      cloudPortalUrl: 'https://registro-pedagogico.onrender.com/omr',
-      schemaSql
-    });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-// 2. Contexto completo (Cursos, Nómina con N° de Lista 1..N, Evaluaciones y Calificaciones)
-app.get('/api/omr/contexto', async (req, res) => {
-  try {
-    await omrSupabaseSync.initLocalOmrTables(prisma);
-    const { configs, allStudents } = await omrSupabaseSync.getLocalCoursesAndRosters(prisma);
-
-    const cursos = configs.map(c => ({
-      config_id: c.id,
-      curso: c.curso || '',
-      area: c.area || '',
-      maestro: c.maestro || '',
-      unidad_educativa: c.unidadEducativa || '',
-      gestion: String(c.gestion || '2026')
-    }));
-
-    const localEvals = await prisma.$queryRawUnsafe(`SELECT * FROM "OmrEvaluacion" WHERE "activa" = 1 ORDER BY "updatedAt" DESC`);
-    const evaluaciones = (localEvals || []).map(ev => {
-      let claves = {};
-      try { claves = JSON.parse(ev.clavesJson || '{}'); } catch {}
-      return {
-        id: ev.id,
-        config_id: Number(ev.configId),
-        trimestre: Number(ev.trimestre) || 1,
-        campo_destino: ev.campoDestino || 'saber_1',
-        titulo: ev.titulo || 'Evaluación OMR',
-        fecha: ev.fecha || '',
-        puntaje_maximo: Number(ev.puntajeMaximo) || 45,
-        total_preguntas: Number(ev.totalPreguntas) || 15,
-        claves_json: claves
-      };
-    });
-
-    const localCalifs = await prisma.$queryRawUnsafe(`SELECT * FROM "OmrCalificacion" ORDER BY "escaneadoAt" DESC LIMIT 300`);
-    const calificaciones = (localCalifs || []).map(ca => ({
-      id: ca.id,
-      evaluacion_id: ca.evaluacionId,
-      config_id: Number(ca.configId),
-      trimestre: Number(ca.trimestre) || 1,
-      campo_destino: ca.campoDestino || 'saber_1',
-      titulo_evaluacion: ca.tituloEvaluacion || '',
-      estudiante_id: ca.estudianteId,
-      nombre_estudiante: ca.nombreEstudiante || '',
-      numero_lista: Number(ca.numeroLista),
-      variante: ca.variante || 'COL1',
-      aciertos: Number(ca.aciertos) || 0,
-      total_preguntas: Number(ca.totalPreguntas) || 15,
-      puntaje: Number(ca.puntaje) || 0,
-      sincronizado_pc: true,
-      escaneado_at: ca.escaneadoAt
-    }));
-
-    res.json({
-      ok: true,
-      cursos,
-      estudiantes: allStudents,
-      evaluaciones,
-      calificaciones
-    });
-  } catch (error) {
-    console.error('[GET /api/omr/contexto] Error:', error.message);
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-// 3. Crear o actualizar Evaluación OMR y Solucionario (Columna 1 y Columna 2)
-app.post('/api/omr/evaluaciones', async (req, res) => {
-  try {
-    await omrSupabaseSync.initLocalOmrTables(prisma);
-    const {
-      id, config_id, configId, trimestre, campo_destino, campoDestino,
-      titulo, fecha, puntaje_maximo, total_preguntas, claves_json
-    } = req.body;
-
-    const cId = parseInt(config_id || configId);
-    const tri = parseInt(trimestre) || 1;
-    const { notaField } = omrSupabaseSync.normalizeFieldPair(campo_destino || campoDestino || 'saber_1');
-    const evalId = String(id || `eval_${cId}_${tri}_${notaField}`).trim();
-    const evalTitle = String(titulo || 'Evaluación OMR').trim();
-    const evalDate = String(fecha || new Date().toISOString().split('T')[0]).trim();
-    const clavesStr = typeof claves_json === 'string'
-      ? claves_json
-      : JSON.stringify(claves_json || omrSupabaseSync.DEFAULT_DECIMALES_KEYS);
-
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO "OmrEvaluacion" ("id", "configId", "trimestre", "campoDestino", "titulo", "fecha", "puntajeMaximo", "totalPreguntas", "clavesJson", "activa", "updatedAt")
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-       ON CONFLICT("id") DO UPDATE SET
-         "configId" = excluded."configId",
-         "trimestre" = excluded."trimestre",
-         "campoDestino" = excluded."campoDestino",
-         "titulo" = excluded."titulo",
-         "fecha" = excluded."fecha",
-         "puntajeMaximo" = excluded."puntajeMaximo",
-         "totalPreguntas" = excluded."totalPreguntas",
-         "clavesJson" = excluded."clavesJson",
-         "activa" = 1,
-         "updatedAt" = CURRENT_TIMESTAMP`,
-      evalId, cId, tri, notaField, evalTitle, evalDate,
-      parseFloat(puntaje_maximo) || 45,
-      parseInt(total_preguntas) || 15,
-      clavesStr
-    );
-
-    // Sincronizar en segundo plano con Supabase Cloud
-    omrSupabaseSync.pushRosterAndEvaluationsToSupabase(prisma).catch(() => {});
-
-    res.json({ ok: true, id: evalId });
-  } catch (error) {
-    console.error('[POST /api/omr/evaluaciones] Error:', error.message);
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-// 4. Registrar calificación OMR directamente (Modo Wi-Fi Local o desde el generador HTML)
-app.post('/api/omr/registrar-calificacion', async (req, res) => {
-  try {
-    await omrSupabaseSync.initLocalOmrTables(prisma);
-    const applied = await omrSupabaseSync.applyScannedGradeToRegistro(
-      prisma,
-      syncService,
-      req.body,
-      { createBackup: true, origen: 'LOCAL_WIFI' }
-    );
-    res.json({ ok: true, applied });
-  } catch (error) {
-    console.error('[POST /api/omr/registrar-calificacion] Error:', error.message);
-    res.status(400).json({ ok: false, error: error.message });
-  }
-});
-
-// 5. Forzar sincronización inmediata con Supabase Cloud (Subir nómina + Descargar calificaciones pendientes)
-app.post('/api/omr/sync-now', async (req, res) => {
-  try {
-    const pushRes = await omrSupabaseSync.pushRosterAndEvaluationsToSupabase(prisma);
-    const pullRes = await omrSupabaseSync.pullPendingGradesFromSupabase(prisma, syncService);
-    res.json({
-      ok: true,
-      push: pushRes,
-      pull: pullRes,
-      omrState: omrSupabaseSync.omrState
-    });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 
 app.listen(PORT, () => {
   // Respaldo preventivo al iniciar el servidor
   syncService.createAutoBackup('startup');
-  // Iniciar demonio de sincronización automática OMR (Supabase <-> Registro Pedagógico)
-  omrSupabaseSync.startOmrSyncDaemon(prisma, syncService);
   console.log(`Server running on port ${PORT}`);
+  // Inicializar auto-hidratación y sincronización permanente con Supabase Cloud
+  supabaseCloudService.initSupabaseAutoSync(prisma);
 });
 
 

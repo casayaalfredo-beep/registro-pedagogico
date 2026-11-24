@@ -690,20 +690,31 @@ const Centralizer = () => {
         wrapper.style.position = 'absolute';
         wrapper.style.top = '-9999px';
         wrapper.style.left = '-9999px';
-        // max-content impide espacios fantasmas garantizando un centrado perfecto
-        wrapper.style.width = 'max-content'; 
+        wrapper.style.width = '780px';
         wrapper.style.zIndex = '-9999';
         wrapper.appendChild(clone);
         document.body.appendChild(wrapper);
 
         try {
+            clone.classList.add('centralizador-pdf-mode');
+
+            // Mostrar cabecera oficial de impresión en el clon
+            const printOnlyElements = clone.querySelectorAll('.print\\:block');
+            printOnlyElements.forEach(el => {
+                el.classList.remove('hidden', 'print:block');
+                el.classList.add('block');
+            });
+
             // Replicar visual de impresión: ocultar paneles laterales y botones
             const noPrintElements = clone.querySelectorAll('.print\\:hidden, .no-print');
-            noPrintElements.forEach(el => el.style.display = 'none');
+            noPrintElements.forEach(el => el.remove());
             
-            // Deshacer el layout grid (para que la tabla ancha tome todo el ancho)
+            // Deshacer el layout grid (para que la tabla tome todo el ancho)
             const gridContainer = clone.querySelector('.grid');
-            if(gridContainer) gridContainer.style.display = 'block';
+            if(gridContainer) {
+                gridContainer.style.display = 'block';
+                gridContainer.style.marginBottom = '0';
+            }
             
             // Limpiar estéticas superficiales en el clon (bordes y sombras)
             const tableBox = clone.querySelector('.lg\\:col-span-2');
@@ -724,37 +735,38 @@ const Centralizer = () => {
                 el.style.maxWidth = 'none';
             });
 
-            await new Promise(r => setTimeout(r, 50));
+            await new Promise(r => setTimeout(r, 60));
 
             const imgData = await toPng(clone, {
                 backgroundColor: '#ffffff',
-                pixelRatio: 5
+                pixelRatio: 2.5
             });
             
-            // Configurado para Hoja Tamaño Carta, Vertical ('p' = portrait)
+            // Configurado para Hoja Tamaño Carta, Vertical ('p' = portrait) con ~3 cm libres al final para firmas
             const pdf = new jsPDF({
                 orientation: 'p',
-                unit: 'px',
-                format: 'letter'
+                unit: 'mm',
+                format: 'letter',
+                compress: true
             });
             
             const rect = clone.getBoundingClientRect();
-            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
-            
-            let drawWidth = pdfWidth;
-            let drawHeight = (rect.height * pdfWidth) / rect.width;
 
-            // Escalar para ajustar y encajar todo dentro de UNA SOLA hoja de manera limpia
-            if (drawHeight > pageHeight) {
-                const ratio = pageHeight / drawHeight;
-                drawHeight = pageHeight;
-                drawWidth = drawWidth * ratio;
-            }
+            const marginTop = 4;
+            const marginBottom = 28;
+            const marginX = 7;
+
+            const availWidth = pageWidth - marginX * 2;
+            const availHeight = pageHeight - marginTop - marginBottom;
+
+            const scale = Math.min(availWidth / rect.width, availHeight / rect.height);
+            const drawWidth = rect.width * scale;
+            const drawHeight = rect.height * scale;
+            const xOffset = (pageWidth - drawWidth) / 2;
             
-            const marginX = (pdfWidth - drawWidth) / 2;
-            
-            pdf.addImage(imgData, 'PNG', marginX, 0, drawWidth, drawHeight);
+            pdf.addImage(imgData, 'PNG', xOffset, marginTop, drawWidth, drawHeight);
             pdf.save(`Centralizador_Anual.pdf`);
             
         } catch (err) {
@@ -765,10 +777,147 @@ const Centralizer = () => {
         }
     };
 
+    // Ajuste dinámico para garantizar 1 sola hoja Carta Vertical con espacio libre al final (~3.5 cm) para firmas
+    const centralizerEstHeight = 80 + Math.max(estudiantes.length, 1) * 21.5;
+    const centralizerPrintZoom = centralizerEstHeight > 885 ? Number((885 / centralizerEstHeight).toFixed(3)) : 1;
+
     return (
-        <div className="px-6 pb-6 pt-3 print-content">
-            <style>{``}</style>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-6">
+        <div className="px-6 pb-6 pt-3 print-content centralizador-print-page">
+            <style>{`
+                @media print {
+                    @page {
+                        size: letter portrait;
+                        margin: 5mm 7mm 5mm 7mm;
+                    }
+                    .centralizador-print-page {
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        width: 100% !important;
+                        zoom: ${centralizerPrintZoom};
+                        page-break-after: avoid !important;
+                        break-after: avoid !important;
+                    }
+                    .centralizador-print-page .centralizador-print-header {
+                        margin-top: 0 !important;
+                        margin-bottom: 6px !important;
+                    }
+                    .centralizador-print-page .centralizador-print-header h1 {
+                        font-size: 16px !important;
+                        line-height: 1.15 !important;
+                        margin: 0 !important;
+                    }
+                    .centralizador-print-page .centralizador-print-header p {
+                        font-size: 10px !important;
+                        margin: 1px 0 4px 0 !important;
+                    }
+                    .centralizador-print-page .centralizador-print-meta {
+                        padding: 3px 8px !important;
+                        gap: 16px !important;
+                        font-size: 10px !important;
+                    }
+                    .centralizador-print-page .grid {
+                        margin-bottom: 0 !important;
+                    }
+                    .centralizador-print-page .overflow-x-auto {
+                        overflow: visible !important;
+                    }
+                    .centralizador-print-page .tabla-centralizador {
+                        width: 100% !important;
+                        border-collapse: collapse !important;
+                    }
+                    .centralizador-print-page .tabla-centralizador thead th {
+                        padding: 3px 6px !important;
+                        font-size: 11px !important;
+                        line-height: 1.15 !important;
+                        border: 1px solid #cbd5e1 !important;
+                        white-space: nowrap !important;
+                    }
+                    .centralizador-print-page .tabla-centralizador tbody tr {
+                        page-break-inside: avoid !important;
+                        break-inside: avoid !important;
+                    }
+                    .centralizador-print-page .tabla-centralizador tbody td {
+                        padding: 2px 6px !important;
+                        line-height: 1.15 !important;
+                        border: 1px solid #cbd5e1 !important;
+                        white-space: nowrap !important;
+                    }
+                    .centralizador-print-page .tabla-centralizador tbody td:first-child {
+                        font-size: 11px !important;
+                        color: #000000 !important;
+                    }
+                    .centralizador-print-page .tabla-centralizador tbody td:nth-child(2) {
+                        font-size: 11.5px !important;
+                        font-weight: 700 !important;
+                        color: #000000 !important;
+                    }
+                    .centralizador-print-page .tabla-centralizador tbody td:nth-child(3),
+                    .centralizador-print-page .tabla-centralizador tbody td:nth-child(4),
+                    .centralizador-print-page .tabla-centralizador tbody td:nth-child(5) {
+                        font-size: 12.5px !important;
+                        color: #000000 !important;
+                    }
+                    .centralizador-print-page .tabla-centralizador tbody td:nth-child(6) {
+                        font-size: 12.5px !important;
+                        font-weight: 900 !important;
+                    }
+                    .centralizador-print-page .tabla-centralizador tbody td:nth-child(7) span {
+                        padding: 0px 6px !important;
+                        font-size: 10px !important;
+                        line-height: 1.2 !important;
+                    }
+                }
+                .centralizador-pdf-mode {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    background: #ffffff !important;
+                }
+                .centralizador-pdf-mode .centralizador-print-header {
+                    margin-top: 0 !important;
+                    margin-bottom: 8px !important;
+                }
+                .centralizador-pdf-mode .tabla-centralizador {
+                    width: 100% !important;
+                    border-collapse: collapse !important;
+                }
+                .centralizador-pdf-mode .tabla-centralizador thead th {
+                    padding: 4px 6px !important;
+                    font-size: 11px !important;
+                    border: 1px solid #cbd5e1 !important;
+                    background: #f8fafc !important;
+                    color: #000000 !important;
+                }
+                .centralizador-pdf-mode .tabla-centralizador tbody td {
+                    padding: 2px 6px !important;
+                    line-height: 1.15 !important;
+                    border: 1px solid #cbd5e1 !important;
+                    white-space: nowrap !important;
+                }
+                .centralizador-pdf-mode .tabla-centralizador tbody td:first-child,
+                .centralizador-pdf-mode .tabla-centralizador tbody td:nth-child(2) {
+                    color: #000000 !important;
+                }
+                .centralizador-pdf-mode .tabla-centralizador tbody td:nth-child(7) span {
+                    padding: 0px 6px !important;
+                    font-size: 10px !important;
+                }
+            `}</style>
+
+            {/* Header de Impresión */}
+            <div className="hidden print:block mb-2 centralizador-print-header">
+                <div className="text-center mb-2">
+                    <h1 className="text-xl font-black text-slate-800 uppercase">Centralizador Anual de Calificaciones</h1>
+                    <p className="text-xs text-slate-600 font-bold">{config?.unidadEducativa || 'Unidad Educativa'}</p>
+                </div>
+                <div className="flex justify-center gap-6 text-xs font-bold border border-slate-300 rounded p-2 bg-slate-50 centralizador-print-meta">
+                    <span><span className="text-slate-500">Maestro:</span> {config?.maestro || '---'}</span>
+                    <span><span className="text-slate-500">Grado:</span> {config?.curso || '---'}</span>
+                    <span><span className="text-slate-500">Asignatura:</span> {config?.area || '---'}</span>
+                    <span><span className="text-slate-500">Gestión:</span> {config?.gestion || '---'}</span>
+                </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-6 no-print">
                 <div className="space-y-3 w-full md:w-auto">
                     <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
                         <div className="w-2 h-10 bg-blue-600 rounded-full"></div>
@@ -810,7 +959,7 @@ const Centralizer = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 print:block">
                 <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-visible print:shadow-none print:border-0 print:m-0 print:p-0">
-                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center px-6">
+                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center px-6 no-print">
                         <h3 className="font-bold text-slate-700 uppercase text-sm">Cuadro Centralizador</h3>
                     </div>
                     <div className="overflow-x-auto">
@@ -838,7 +987,7 @@ const Centralizer = () => {
                                     else totalReprobados++;
                                     
                                     return (
-                                        <tr key={e.id} className="hover:bg-slate-50 transition-colors">
+                                        <tr key={e.id} className="hover:bg-purple-200">
                                             <td className="py-1 px-3 font-bold text-slate-400 border-r border-slate-400">{i + 1}</td>
                                             <td className="py-1 px-3 font-bold text-slate-700 uppercase border-r border-slate-400">{e.apellidos} {e.nombres}</td>
                                             <td className="py-1 px-2 text-center border-r border-slate-400">{t1 || ''}</td>

@@ -110,9 +110,29 @@
     box-shadow: none !important;
     background-color: white !important;
 }
-.tabla-valoracion tbody tr:focus-within {
-    background-color: #f1f5f9;
-    transition: background-color 0.2s;
+@media screen {
+    .tabla-valoracion tbody tr:focus-within,
+    .tabla-valoracion tbody tr:focus-within td {
+        background-color: #f3e8ff;
+    }
+    .tabla-valoracion tbody tr:focus-within td.bg-promedio-orange,
+    .tabla-valoracion tbody tr:focus-within td.bg-autoeval-peach,
+    .tabla-valoracion tbody tr:focus-within td.bg-promedio-blue,
+    .tabla-valoracion tbody tr:focus-within td.bg-rango-peach,
+    .tabla-valoracion tbody tr:focus-within td.bg-final-gray {
+        background-color: #e9d5ff;
+    }
+    .tabla-valoracion tbody tr:hover,
+    .tabla-valoracion tbody tr:hover td {
+        background-color: #e9d5ff !important;
+    }
+    .tabla-valoracion tbody tr:hover td.bg-promedio-orange,
+    .tabla-valoracion tbody tr:hover td.bg-autoeval-peach,
+    .tabla-valoracion tbody tr:hover td.bg-promedio-blue,
+    .tabla-valoracion tbody tr:hover td.bg-rango-peach,
+    .tabla-valoracion tbody tr:hover td.bg-final-gray {
+        background-color: #d8b4fe !important;
+    }
 }
 .tabla-valoracion input[type=number]::-webkit-inner-spin-button, 
 .tabla-valoracion input[type=number]::-webkit-outer-spin-button { 
@@ -184,4 +204,79 @@ body.valoracion-locked .tabla-valoracion input.vertical-header-input {
 body.valoracion-locked .print-grades-container {
     border: 2px solid #ef4444 !important;
     border-radius: 0.5rem;
+}
+
+/* ── Modo Exportar PDF: Estilo nítido equivalente o superior a la vista previa de impresión ── */
+.pdf-export-mode {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+}
+.pdf-export-mode .print-grades-container {
+    overflow: visible !important;
+    max-height: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+.pdf-export-mode .print-grades-container > div {
+    overflow: visible !important;
+    max-height: none !important;
+}
+.pdf-export-mode .tabla-valoracion {
+    width: 100% !important;
+}
+.pdf-export-mode .tabla-valoracion thead {
+    position: static !important;
+}
+body.compact-table-header .pdf-export-mode .tabla-valoracion thead tr:nth-child(1),
+body.compact-table-header .pdf-export-mode .tabla-valoracion thead tr:nth-child(2) {
+    display: table-row !important;
+}
+.pdf-export-mode .tabla-valoracion th,
+.pdf-export-mode .tabla-valoracion td {
+    border-color: #cbd5e1 !important;
+}
+.pdf-export-mode .tabla-valoracion th.thick-left,
+.pdf-export-mode .tabla-valoracion td.thick-left {
+    border-left: 2px solid #94a3b8 !important;
+}
+.pdf-export-mode .tabla-valoracion th.thick-right,
+.pdf-export-mode .tabla-valoracion td.thick-right {
+    border-right: 2px solid #94a3b8 !important;
+}
+.pdf-export-mode .tabla-valoracion tbody td:first-child {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+}
+.pdf-export-mode .tabla-valoracion tbody td:nth-child(2) {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+}
+.pdf-export-mode .tabla-valoracion input[inputmode="numeric"] {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    color: #000000 !important;
+    opacity: 1 !important;
+}
+.pdf-export-mode .tabla-valoracion tbody td.bg-promedio-orange,
+.pdf-export-mode .tabla-valoracion tbody td.bg-autoeval-peach,
+.pdf-export-mode .tabla-valoracion tbody td.bg-promedio-blue,
+.pdf-export-mode .tabla-valoracion tbody td.bg-rango-peach,
+.pdf-export-mode .tabla-valoracion tbody td.bg-final-gray {
+    font-size: 16px !important;
+    font-weight: 900 !important;
+}
+.pdf-export-mode .tabla-valoracion tbody td:last-child {
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    color: #000000 !important;
+}
+.pdf-export-mode .vertical-header-input {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    opacity: 1 !important;
 }
