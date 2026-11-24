@@ -786,13 +786,31 @@ const Attendance = () => {
                     }
                     .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia thead tr:first-child th:nth-child(2),
                     .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia tbody td:nth-child(2) {
-                        width: 215px !important;
-                        min-width: 215px !important;
-                        max-width: 215px !important;
+                        width: 205px !important;
+                        min-width: 205px !important;
+                        max-width: 205px !important;
                         white-space: nowrap !important;
                         overflow: hidden !important;
                         text-overflow: ellipsis !important;
-                        font-size: 11px !important;
+                        font-size: 10.5px !important;
+                        position: sticky !important;
+                        left: 0 !important;
+                        box-shadow: 2px 0 5px -1px rgba(15, 23, 42, 0.13), inset -1px 0 0 #cbd5e1 !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia thead tr:first-child th:nth-child(2) {
+                        z-index: 35 !important;
+                        background-color: #f8fafc !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia tbody td:nth-child(2) {
+                        z-index: 25 !important;
+                        background-color: #ffffff !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia tbody tr:focus-within td:nth-child(2),
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia tbody tr.bg-purple-100 td:nth-child(2) {
+                        background-color: #f3e8ff !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia tbody tr:hover td:nth-child(2) {
+                        background-color: #e9d5ff !important;
                     }
                     .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia th.col-dia-asist,
                     .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia td.col-dia-asist {

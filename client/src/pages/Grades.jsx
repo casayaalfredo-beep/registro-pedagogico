@@ -1182,9 +1182,10 @@ const Grades = () => {
                         <thead>
                             {/* Fila 1 */}
                             <tr>
-                                <th colSpan="2" rowSpan="2" className="bg-[#eef1fb] border-r-2 p-0" style={{ width: '280px', minWidth: '280px' }}>
+                                <th rowSpan="2" className="bg-[#eef1fb] border-r-0 p-0 w-[26px] min-w-[26px] max-w-[26px]"></th>
+                                <th rowSpan="2" className="bg-[#eef1fb] border-l-0 border-r-2 p-0 valoracion-nomina-sticky-header" style={{ width: '254px', minWidth: '205px' }}>
                                     {/* Barra de fórmulas — muestra el valor de la celda activa */}
-                                    <div className="flex items-center h-full w-full px-4 py-1 gap-4 no-print focus-within:relative focus-within:z-20 focus-within:shadow-[0_0_0_2px_#9333ea] focus-within:bg-white transition-all">
+                                    <div className="flex items-center h-full w-full px-3 py-1 gap-3 no-print focus-within:relative focus-within:z-20 focus-within:shadow-[0_0_0_2px_#9333ea] focus-within:bg-white transition-all">
                                         <span className="text-[13px] font-black text-[#7030a0] bg-[#e8d5f5] px-2.5 py-1 rounded select-none shrink-0">fx</span>
                                         <textarea ref={fxBarRef} className="text-slate-800 bg-transparent outline-none w-full h-full resize-none focus:!shadow-none focus:!bg-transparent leading-tight scrollbar-thin" style={{ fontFamily: 'Arial, sans-serif', fontSize: '10pt', fontWeight: 'normal' }} placeholder="" />
                                     </div>
@@ -1205,8 +1206,8 @@ const Grades = () => {
                             </tr>
                             {/* Fila 3 - Cabeceras Verticales Editables */}
                             <tr className="bg-white">
-                                <th className="border-t-0 border-b-0 text-purple-header text-[12px]">Nº</th>
-                                <th className="border-t-0 border-b-0 border-r-2 text-purple-header text-[12px] !text-left pl-2 align-bottom pb-2">NÓMINA DE ESTUDIANTES</th>
+                                <th className="border-t-0 border-b-0 text-purple-header text-[12px] w-[26px] min-w-[26px] max-w-[26px]">Nº</th>
+                                <th className="border-t-0 border-b-0 border-r-2 text-purple-header text-[12px] !text-left pl-2 align-bottom pb-2 bg-white valoracion-nomina-sticky-sub">NÓMINA DE ESTUDIANTES</th>
                                 {/* SER */}
                                 {[1,2,3,4,5,6].map(i => {
                                     const fieldKey = `ser_${i}`;

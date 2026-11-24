@@ -280,3 +280,54 @@ body.compact-table-header .pdf-export-mode .tabla-valoracion thead tr:nth-child(
     color: #0f172a !important;
     opacity: 1 !important;
 }
+.pdf-export-mode .valoracion-nomina-sticky-header,
+.pdf-export-mode .valoracion-nomina-sticky-sub,
+.pdf-export-mode .valoracion-nomina-sticky-cell {
+    position: static !important;
+    box-shadow: none !important;
+}
+
+/* ── Fijar columna NÓMINA DE ESTUDIANTES (sin incluir Nº) al desplazar horizontalmente ── */
+@media screen {
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-header,
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-sub,
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-cell {
+        position: sticky !important;
+        left: 0 !important;
+        box-shadow: 2px 0 5px -1px rgba(15, 23, 42, 0.14), inset -2px 0 0 #94a3b8 !important;
+    }
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-header {
+        z-index: 35 !important;
+        background-color: #eef1fb !important;
+    }
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-sub {
+        z-index: 35 !important;
+        background-color: #ffffff !important;
+    }
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-cell {
+        z-index: 25 !important;
+        background-color: #ffffff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .print-content:not(.pdf-export-mode) .tabla-valoracion tbody tr:focus-within .valoracion-nomina-sticky-cell {
+        background-color: #f3e8ff !important;
+    }
+    .print-content:not(.pdf-export-mode) .tabla-valoracion tbody tr:hover .valoracion-nomina-sticky-cell {
+        background-color: #e9d5ff !important;
+    }
+}
+
+@media screen and (max-width: 1023px), screen and (max-height: 580px) {
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-header,
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-sub,
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-cell {
+        width: 205px !important;
+        min-width: 205px !important;
+        max-width: 205px !important;
+    }
+    .print-content:not(.pdf-export-mode) .tabla-valoracion .valoracion-nomina-sticky-cell {
+        font-size: 10.5px !important;
+    }
+}
