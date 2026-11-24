@@ -44,6 +44,35 @@ const Attendance = () => {
 
     const [customDates, setCustomDates] = useState({});
     const dateTimers = React.useRef({}); // Para protección DDoS de fechas
+    const tableScrollRef = React.useRef(null);
+    const [mobileScrollRatio, setMobileScrollRatio] = useState(0);
+
+    const handleTableScroll = (e) => {
+        const el = e.currentTarget;
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        if (maxScroll > 0) {
+            setMobileScrollRatio(Math.round((el.scrollLeft / maxScroll) * 100));
+        } else {
+            setMobileScrollRatio(0);
+        }
+    };
+
+    const handleMobileSliderChange = (e) => {
+        const val = Number(e.target.value);
+        setMobileScrollRatio(val);
+        const el = tableScrollRef.current;
+        if (el) {
+            const maxScroll = el.scrollWidth - el.clientWidth;
+            el.scrollLeft = (val / 100) * maxScroll;
+        }
+    };
+
+    const nudgeMobileScroll = (deltaPx) => {
+        const el = tableScrollRef.current;
+        if (el) {
+            el.scrollBy({ left: deltaPx, behavior: 'smooth' });
+        }
+    };
 
     // ── Carga inicial ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -710,6 +739,77 @@ const Attendance = () => {
                     font-size: 11px !important;
                     font-weight: 800 !important;
                 }
+
+                /* ── Diseño exclusivo para Celular (< 768px): Barra desplazadora y columnas nítidas como Valoración ── */
+                @media screen and (max-width: 767px) {
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .asistencia-scroll-wrapper {
+                        overflow: auto !important;
+                        max-height: calc(100vh - 165px) !important;
+                        -webkit-overflow-scrolling: touch;
+                        scrollbar-width: thin;
+                        scrollbar-color: #7c3aed #e2e8f0;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .asistencia-scroll-wrapper::-webkit-scrollbar {
+                        height: 10px;
+                        width: 6px;
+                        display: block !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .asistencia-scroll-wrapper::-webkit-scrollbar-track {
+                        background: #f1f5f9;
+                        border-radius: 9999px;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .asistencia-scroll-wrapper::-webkit-scrollbar-thumb {
+                        background: #7c3aed;
+                        border-radius: 9999px;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia {
+                        width: max-content !important;
+                        min-width: 1185px !important;
+                        table-layout: fixed !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia thead {
+                        position: sticky;
+                        top: 0;
+                        z-index: 30;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia thead tr:first-child th:nth-child(1),
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia tbody td:nth-child(1) {
+                        width: 28px !important;
+                        min-width: 28px !important;
+                        max-width: 28px !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia thead tr:first-child th:nth-child(2),
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia tbody td:nth-child(2) {
+                        width: 215px !important;
+                        min-width: 215px !important;
+                        max-width: 215px !important;
+                        white-space: nowrap !important;
+                        overflow: hidden !important;
+                        text-overflow: ellipsis !important;
+                        font-size: 11px !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia th.col-dia-asist,
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia td.col-dia-asist {
+                        width: 26px !important;
+                        min-width: 26px !important;
+                        max-width: 26px !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia th.col-res-asist,
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia td.col-res-asist {
+                        width: 26px !important;
+                        min-width: 26px !important;
+                        max-width: 26px !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia thead tr:first-child th:nth-child(5),
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia tbody td:last-child {
+                        width: 68px !important;
+                        min-width: 68px !important;
+                    }
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .tabla-asistencia tbody td.col-dia-asist input {
+                        font-size: 12px !important;
+                        min-height: 26px !important;
+                    }
+                }
             `}</style>
 
             {/* Header de Impresión */}
@@ -828,9 +928,47 @@ const Attendance = () => {
                 </div>
             )}
 
+            {/* ── Barra desplazadora horizontal exclusiva para Celular (< 768px) ── */}
+            <div className="md:hidden no-print print:hidden mb-2 bg-white border border-purple-200 rounded-xl px-3 py-2 shadow-sm flex items-center gap-2.5">
+                <button
+                    type="button"
+                    onClick={() => nudgeMobileScroll(-180)}
+                    className="w-7 h-7 rounded-lg bg-purple-100 active:bg-purple-600 text-purple-800 active:text-white font-black text-xs flex items-center justify-center flex-shrink-0 transition"
+                    aria-label="Desplazar a la izquierda"
+                >
+                    ◀
+                </button>
+                <div className="flex-1 flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between text-[10px] font-extrabold text-purple-800 uppercase tracking-wider">
+                        <span>Deslizar Fechas y Resumen</span>
+                        <span>{mobileScrollRatio}%</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={mobileScrollRatio}
+                        onChange={handleMobileSliderChange}
+                        className="w-full h-2 bg-purple-100 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                    />
+                </div>
+                <button
+                    type="button"
+                    onClick={() => nudgeMobileScroll(180)}
+                    className="w-7 h-7 rounded-lg bg-purple-100 active:bg-purple-600 text-purple-800 active:text-white font-black text-xs flex items-center justify-center flex-shrink-0 transition"
+                    aria-label="Desplazar a la derecha"
+                >
+                    ▶
+                </button>
+            </div>
+
             {/* ── Tabla de asistencia ───────────────────────────────────────── */}
             <div className="bg-white rounded-sm shadow-2xl border border-slate-200 overflow-hidden">
-                <div className="overflow-x-auto">
+                <div
+                    ref={tableScrollRef}
+                    onScroll={handleTableScroll}
+                    className="overflow-x-auto asistencia-scroll-wrapper"
+                >
                     <table className="w-full border-collapse text-[10px] tabla-asistencia">
                         <thead>
                             <tr className="bg-slate-50">
@@ -857,7 +995,7 @@ const Attendance = () => {
                                 {days.map(d => {
                                     const displayDate = customDates[d] !== undefined ? customDates[d] : '';
                                     return (
-                                        <th key={d} className="border border-slate-300 w-8 relative overflow-visible">
+                                        <th key={d} className="border border-slate-300 w-8 relative overflow-visible col-dia-asist">
                                             <div className="absolute inset-0 flex items-center justify-center">
                                                 <input
                                                     id={`date-input-${d}`}
@@ -875,10 +1013,10 @@ const Attendance = () => {
                                         </th>
                                     );
                                 })}
-                                <th className="border border-slate-300 w-8 bg-green-50 text-green-700">A</th>
-                                <th className="border border-slate-300 w-8 bg-red-50 text-red-700">F</th>
-                                <th className="border border-slate-300 w-8 bg-blue-50 text-blue-700">R</th>
-                                <th className="border border-slate-300 w-8 bg-orange-50 text-orange-700">L</th>
+                                <th className="border border-slate-300 w-8 bg-green-50 text-green-700 col-res-asist">A</th>
+                                <th className="border border-slate-300 w-8 bg-red-50 text-red-700 col-res-asist">F</th>
+                                <th className="border border-slate-300 w-8 bg-blue-50 text-blue-700 col-res-asist">R</th>
+                                <th className="border border-slate-300 w-8 bg-orange-50 text-orange-700 col-res-asist">L</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -897,7 +1035,7 @@ const Attendance = () => {
                                             return (
                                                 <td
                                                     key={d}
-                                                    className={`border border-slate-300 p-0 m-0 relative ${
+                                                    className={`border border-slate-300 p-0 m-0 relative col-dia-asist ${
                                                         status === 'A' ? 'bg-green-100 text-green-700' :
                                                         status === 'F' ? 'bg-red-100 text-red-700' :
                                                         status === 'R' ? 'bg-blue-100 text-blue-700' :
@@ -926,10 +1064,10 @@ const Attendance = () => {
                                                 </td>
                                             );
                                         })}
-                                        <td className="border border-slate-300 text-center bg-green-50/30 font-bold">{stats.A}</td>
-                                        <td className="border border-slate-300 text-center bg-red-50/30 font-bold text-red-600">{stats.F}</td>
-                                        <td className="border border-slate-300 text-center bg-blue-50/30 font-bold">{stats.R}</td>
-                                        <td className="border border-slate-300 text-center bg-orange-50/30 font-bold">{stats.L}</td>
+                                        <td className="border border-slate-300 text-center bg-green-50/30 font-bold col-res-asist">{stats.A}</td>
+                                        <td className="border border-slate-300 text-center bg-red-50/30 font-bold text-red-600 col-res-asist">{stats.F}</td>
+                                        <td className="border border-slate-300 text-center bg-blue-50/30 font-bold col-res-asist">{stats.R}</td>
+                                        <td className="border border-slate-300 text-center bg-orange-50/30 font-bold col-res-asist">{stats.L}</td>
                                         <td className="border border-slate-300 text-center print:hidden p-0.5 min-w-[65px] align-middle">
                                             {(() => {
                                                 const count = fichasCounts[e.id] || 0;
