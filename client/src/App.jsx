@@ -94,45 +94,72 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
+const checkIsMobileViewport = () => {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+    const isCoarse = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+    // En celular vertical (width < 768) y en celular horizontal (width < 1024 o height < 580 o dispositivo táctil móvil)
+    return isMobileUA || isCoarse || window.innerWidth < 1024 || window.innerHeight < 580;
+};
+
 const AppLayout = ({ children, onLogout }) => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(checkIsMobileViewport);
+
+    useEffect(() => {
+        const handleResizeOrOrientation = () => {
+            const mobileNow = checkIsMobileViewport();
+            setIsMobile(mobileNow);
+        };
+        window.addEventListener('resize', handleResizeOrOrientation);
+        window.addEventListener('orientationchange', handleResizeOrOrientation);
+        return () => {
+            window.removeEventListener('resize', handleResizeOrOrientation);
+            window.removeEventListener('orientationchange', handleResizeOrOrientation);
+        };
+    }, []);
 
     return (
         <div className="flex bg-slate-100 min-h-screen">
-            {/* Barra superior visible únicamente en celulares y tablets */}
-            <header className="md:hidden fixed top-0 left-0 right-0 h-14 bg-slate-900 text-white flex items-center justify-between px-3 z-40 border-b border-slate-800 no-print shadow-md">
-                <button
-                    onClick={() => setSidebarOpen(true)}
-                    className="p-2 text-slate-300 hover:text-white bg-slate-800/80 active:bg-slate-700 rounded-lg transition"
-                    aria-label="Abrir menú"
-                    title="Menú"
-                >
-                    <Menu size={22} />
-                </button>
-                <div className="font-bold text-xs sm:text-sm tracking-wider uppercase bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                    REGISTRO PEDAGÓGICO
-                </div>
-                <div className="w-8"></div>
-            </header>
+            {/* Barra superior visible en celular tanto en orientación vertical como horizontal */}
+            {isMobile && (
+                <header className="fixed top-0 left-0 right-0 h-12 sm:h-12 bg-slate-900 text-white flex items-center justify-between px-3 z-40 border-b border-slate-800 no-print shadow-md">
+                    <button
+                        onClick={() => setSidebarOpen(prev => !prev)}
+                        className="px-2.5 py-1.5 text-slate-200 hover:text-white bg-slate-800 active:bg-purple-700 rounded-lg transition flex items-center gap-1.5 border border-slate-700"
+                        aria-label={sidebarOpen ? "Ocultar menú" : "Abrir menú"}
+                        title={sidebarOpen ? "Ocultar menú" : "Abrir menú"}
+                    >
+                        <Menu size={20} />
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Menú</span>
+                    </button>
+                    <div className="font-bold text-xs sm:text-sm tracking-wider uppercase bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent truncate px-2">
+                        REGISTRO PEDAGÓGICO
+                    </div>
+                    <div className="w-12"></div>
+                </header>
+            )}
 
-            {/* Cortina oscura de fondo al abrir el menú en celular */}
-            {sidebarOpen && (
+            {/* Cortina oscura de fondo al abrir el menú en celular (vertical u horizontal) */}
+            {isMobile && sidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-xs transition-opacity"
+                    className="fixed inset-0 bg-black/60 z-40 backdrop-blur-xs transition-opacity no-print"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
 
-            {/* Menú lateral */}
+            {/* Menú lateral: en celular (vertical u horizontal) siempre se puede ocultar */}
             <Sidebar
                 onLogout={onLogout}
                 isOpen={sidebarOpen}
+                isMobile={isMobile}
                 onClose={() => setSidebarOpen(false)}
                 className="no-print"
             />
 
-            {/* Contenido principal: 100% de ancho en celular (ml-0), margen izquierdo solo en pantalla grande (md:ml-64) */}
-            <main className="flex-1 ml-0 md:ml-64 w-full min-w-0 overflow-x-auto p-2 sm:p-4 pt-16 md:pt-4">
+            {/* Contenido principal: 100% de ancho en celular vertical y horizontal (ml-0), margen izquierdo solo en PC */}
+            <main className={`flex-1 w-full min-w-0 overflow-x-auto p-2 sm:p-4 ${isMobile ? 'ml-0 pt-14' : 'ml-64 pt-4'}`}>
                 {children}
             </main>
         </div>

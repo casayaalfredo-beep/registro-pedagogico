@@ -740,11 +740,17 @@ const Attendance = () => {
                     font-weight: 800 !important;
                 }
 
-                /* ── Diseño exclusivo para Celular (< 768px): Barra desplazadora y columnas nítidas como Valoración ── */
-                @media screen and (max-width: 767px) {
+                /* ── Diseño exclusivo para Celular (Vertical y Horizontal): Barra desplazadora y columnas nítidas como Valoración ── */
+                .asistencia-mobile-slider {
+                    display: none;
+                }
+                @media screen and (max-width: 1023px), screen and (max-height: 580px) {
+                    .asistencia-diaria-print:not(.asistencia-diaria-pdf) .asistencia-mobile-slider {
+                        display: flex !important;
+                    }
                     .asistencia-diaria-print:not(.asistencia-diaria-pdf) .asistencia-scroll-wrapper {
                         overflow: auto !important;
-                        max-height: calc(100vh - 165px) !important;
+                        max-height: calc(100vh - 150px) !important;
                         -webkit-overflow-scrolling: touch;
                         scrollbar-width: thin;
                         scrollbar-color: #7c3aed #e2e8f0;
@@ -928,8 +934,8 @@ const Attendance = () => {
                 </div>
             )}
 
-            {/* ── Barra desplazadora horizontal exclusiva para Celular (< 768px) ── */}
-            <div className="md:hidden no-print print:hidden mb-2 bg-white border border-purple-200 rounded-xl px-3 py-2 shadow-sm flex items-center gap-2.5">
+            {/* ── Barra desplazadora horizontal exclusiva para Celular (Vertical y Horizontal) ── */}
+            <div className="asistencia-mobile-slider no-print print:hidden mb-2 bg-white border border-purple-200 rounded-xl px-3 py-2 shadow-sm items-center gap-2.5">
                 <button
                     type="button"
                     onClick={() => nudgeMobileScroll(-180)}

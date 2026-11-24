@@ -21,7 +21,7 @@ import {
 import SyncModal from './SyncModal';
 import api from '../api';
 
-const Sidebar = ({ onLogout, isOpen = false, onClose, className = '' }) => {
+const Sidebar = ({ onLogout, isOpen = false, isMobile = false, onClose, className = '' }) => {
     const location = useLocation();
     const isValoracionPage = location.pathname === '/valoracion';
     const [isCompact, setIsCompact] = React.useState(false);
@@ -97,8 +97,12 @@ const Sidebar = ({ onLogout, isOpen = false, onClose, className = '' }) => {
         { icon: <FileText size={20} />, label: 'Planes y Programas', path: '/planes-programas' },
     ];
 
+    const translateClass = isMobile
+        ? (isOpen ? 'translate-x-0' : '-translate-x-full')
+        : (isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0');
+
     return (
-        <div className={`fixed left-0 top-0 w-64 bg-slate-900 h-screen text-white flex flex-col no-print z-50 select-none shadow-2xl transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} ${className}`}>
+        <div className={`fixed left-0 top-0 w-64 bg-slate-900 h-screen text-white flex flex-col no-print z-50 select-none shadow-2xl transition-transform duration-300 ease-in-out ${translateClass} ${className}`}>
             <div className="px-4 py-3.5 border-b border-slate-700 flex items-center justify-between gap-2 flex-shrink-0">
                 <h1 className="text-base font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent leading-tight">
                     REGISTRO PEDAGÓGICO
@@ -113,13 +117,14 @@ const Sidebar = ({ onLogout, isOpen = false, onClose, className = '' }) => {
                             {isCompact ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
                         </button>
                     )}
-                    {onClose && (
+                    {isMobile && onClose && (
                         <button
                             onClick={onClose}
-                            className="md:hidden text-slate-400 hover:text-white transition-colors p-1.5 bg-slate-800 hover:bg-slate-700 rounded-md flex-shrink-0"
-                            title="Cerrar menú"
+                            className="text-slate-200 hover:text-white transition-colors px-2 py-1 bg-slate-800 hover:bg-red-600/80 active:bg-red-700 rounded-md flex items-center gap-1 flex-shrink-0 border border-slate-700 text-xs font-bold"
+                            title="Ocultar menú"
                         >
-                            <X size={18} />
+                            <X size={16} />
+                            <span>Ocultar</span>
                         </button>
                     )}
                 </div>
